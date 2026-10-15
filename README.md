@@ -25,7 +25,7 @@ The selected Horizon project is configured in `config/supabase-public.json`. The
 
 ## Supabase setup (required before live signup)
 
-Selected project: `https://utfdajwoseumovoqxtev.supabase.co`. Its publishable key has been verified. Email signup is enabled and email confirmation is required. The `profiles` table still needs to be created; the connected Supabase management account currently cannot access this project.
+Selected project: `https://utfdajwoseumovoqxtev.supabase.co`. Its publishable key has been verified. Email signup is enabled and email confirmation is required. The `profiles` table and its three ownership policies were applied on October 15, 2026. Transaction-scoped database tests verified own-profile insert/read/update and blocked cross-user read/update/insert. Test records were rolled back. Supabase security advisors returned no findings.
 
 1. Run `supabase/schema.sql` in its SQL Editor. The SQL includes RLS and verification queries.
 2. In Authentication, enable Email/password authentication and email confirmation.
@@ -65,7 +65,7 @@ Run `node --test tests/config.test.cjs tests/auth.test.mjs` or `npm test`.
 
 The tests cover validation, SDK payloads, error propagation, owner-scoped profile writes, public-key filtering, callbacks, and local HTTP isolation.
 They do not replace live Supabase testing. After configuration, test signup/verification, login, logout, recovery, email change, profile persistence, and two-user RLS isolation using test accounts you control.
-Live database policies and email delivery remain unverified until a backend is connected.
+Live database ownership policies have been verified. Browser signup, email delivery, confirmation redirects, and password recovery still require end-to-end testing after the dashboard URL settings are confirmed.
 
 ## Structure
 

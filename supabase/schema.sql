@@ -9,7 +9,7 @@ create table if not exists public.profiles (
   created_at timestamptz not null default now()
 );
 alter table public.profiles enable row level security;
-revoke all on public.profiles from anon, authenticated;
+revoke all on public.profiles from public, anon, authenticated;
 grant select, insert on public.profiles to authenticated;
 grant update (first_name, last_name, phone) on public.profiles to authenticated;
 drop policy if exists "Read own profile" on public.profiles;
