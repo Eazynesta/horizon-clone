@@ -1,8 +1,10 @@
 'use strict';
+// Publishable client configuration is intentionally public. Never put secrets here.
+const defaults = require('../config/supabase-public.json');
 
-function publicConfig(env = process.env) {
-  const url = (env.SUPABASE_URL || '').trim();
-  const key = (env.SUPABASE_PUBLISHABLE_KEY || '').trim();
+function publicConfig(env = process.env, fallback = defaults) {
+  const url = (env.SUPABASE_URL ?? fallback.supabaseUrl ?? '').trim();
+  const key = (env.SUPABASE_PUBLISHABLE_KEY ?? fallback.supabasePublishableKey ?? '').trim();
   // Fail closed if a server-only secret is accidentally assigned to this variable.
   if (!/^https:\/\/[a-z0-9-]+\.supabase\.co\/?$/i.test(url) ||
       !/^sb_publishable_[A-Za-z0-9_-]+$/.test(key) || key.includes('REPLACE_ME')) return null;

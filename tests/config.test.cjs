@@ -11,7 +11,7 @@ test('public config rejects secret and legacy service-role keys', () => {
 });
 test('HTTP serves app and callback, refuses workspace files, and fails closed without config', async () => {
   const oldUrl = process.env.SUPABASE_URL, oldKey = process.env.SUPABASE_PUBLISHABLE_KEY;
-  delete process.env.SUPABASE_URL; delete process.env.SUPABASE_PUBLISHABLE_KEY;
+  process.env.SUPABASE_URL = 'invalid'; process.env.SUPABASE_PUBLISHABLE_KEY = 'sb_secret_test';
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   const origin = 'http://127.0.0.1:' + server.address().port;
   try {
@@ -28,7 +28,12 @@ test('HTTP serves app and callback, refuses workspace files, and fails closed wi
     assert.equal((await fetch(origin + '/api/config', { method: 'POST' })).status, 405);
   } finally {
     await new Promise(resolve => server.close(resolve));
-    if (oldUrl !== undefined) process.env.SUPABASE_URL = oldUrl;
-    if (oldKey !== undefined) process.env.SUPABASE_PUBLISHABLE_KEY = oldKey;
+    if (oldUrl !== undefined) process.env.SUPABASE_URL = oldUrl; else delete process.env.SUPABASE_URL;
+    if (oldKey !== undefined) process.env.SUPABASE_PUBLISHABLE_KEY = oldKey; else delete process.env.SUPABASE_PUBLISHABLE_KEY;
   }
+});
+
+test('deployment defaults connect only the selected Horizon project', () => {
+  assert.equal(publicConfig({}).supabaseUrl, 'https://utfdajwoseumovoqxtev.supabase.co');
+  assert.equal(publicConfig({}, {}), null);
 });

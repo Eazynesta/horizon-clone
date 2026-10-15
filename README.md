@@ -21,12 +21,11 @@ Requires Node.js 22 or newer. No dependency installation or build is needed.
 3. Run `node --env-file-if-exists=.env serve.cjs` or `npm run dev`.
 4. Open http://127.0.0.1:4174.
 
-The public config endpoint deliberately returns 503 until valid configuration is present.
-The homepage still works and account forms display a clear unavailable message.
+The selected Horizon project is configured in `config/supabase-public.json`. These are intentionally public client settings, not server credentials. Environment variables can override them. Invalid overrides fail closed with HTTP 503. The database schema and Auth URL configuration below must still be applied.
 
 ## Supabase setup (required before live signup)
 
-Create a separate Horizon project in your chosen Supabase account/organization.
+Selected project: `https://utfdajwoseumovoqxtev.supabase.co`. Its publishable key has been verified. Email signup is enabled and email confirmation is required. The `profiles` table still needs to be created; the connected Supabase management account currently cannot access this project.
 
 1. Run `supabase/schema.sql` in its SQL Editor. The SQL includes RLS and verification queries.
 2. In Authentication, enable Email/password authentication and email confirmation.
@@ -51,7 +50,7 @@ Import `Eazynesta/horizon-clone`, branch `main`.
 
 - Keep the Root Directory at the repository root (not `dist`).
 - `vercel.json` sets Framework to Other, output to `dist`, and no install/build step.
-- Add `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` in the project's environment variables.
+- Public project settings are already provided in `config/supabase-public.json`. Optionally override them with `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` in Vercel. Remove stale overrides pointing at another project.
 - Redeploy after changing environment variables.
 - Verify `/api/config` returns 200 and `/auth/callback` returns the app.
 - Connect the repository to Vercel Git integration to deploy subsequent pushes automatically.
