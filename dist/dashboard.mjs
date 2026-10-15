@@ -77,6 +77,7 @@ export function dashboardHTML({firstName='there',preview=false,view='dashboard'}
 }
 export function mountDashboard(root, options) {
   root.innerHTML=dashboardHTML(options);
+  if(options.mainHTML) root.querySelector('main').innerHTML=options.mainHTML;
   const dialog=root.querySelector('#market-dialog');
   let lastFocus;
   function showDialog(title,content) {
@@ -97,7 +98,9 @@ export function mountDashboard(root, options) {
     const nav=e.target.closest('[data-nav]');
     if(nav) {
       const page=nav.dataset.nav;
-      if(page==='dashboard'||page==='markets') {
+      if(page==='dashboard'||page==='markets'||page==='deposit') {
+        if(page==='deposit') { location.hash=options.preview?'/deposit-preview':'/deposit'; return; }
+        if(options.preview && options.mainHTML) { location.hash='/dashboard-preview'; return; }
         if(options.preview) { options.view=page; mountDashboard(root,options); }
         else location.hash='/'+page;
       } else if(page==='trade') showDialog('Trading workspace','<p class="dialog-explanation">Choose a market to view its price snapshot. Trading and order execution are not enabled yet.</p><div class="market-shortcuts">'+ASSETS.slice(0,6).map(a=>`<button class="secondary-button" data-asset="${a.symbol}">${a.symbol}/USDT</button>`).join('')+'</div>');
@@ -113,6 +116,14 @@ export function mountDashboard(root, options) {
     if(action==='balance')showDialog('Account balance','<p class="dialog-explanation">No funded wallet is connected. Trading, deposits, and withdrawals are not enabled.</p>');
     if(action==='app')showDialog('Aurexmarkets on mobile','<p class="dialog-explanation">The native app is not available yet. You can use this responsive website on your phone.</p>');
   };
+  if(options.mainHTML) {
+    root.querySelector('#market-search').addEventListener('keydown', e=>{
+      if(e.key!=='Enter')return; e.preventDefault();
+      const assets=filterAssets(e.target.value);
+      showDialog('Markets',assets.length?'<div class="market-shortcuts">'+assets.map(a=>`<button class="secondary-button" data-asset="${a.symbol}">${a.symbol}/USDT</button>`).join('')+'</div>':'<p class="dialog-explanation">No markets found. Try another name or symbol.</p>');
+    });
+    return;
+  }
   let all=options.view==='markets';
   function filter() {
     const query=root.querySelector('#market-search').value;

@@ -96,3 +96,7 @@ Git saves local history; Vercel deployment follows the connected branch's pushes
 Signing in opens `/#/dashboard`; profile settings remain at `/#/account`. A public, sample-only preview is available at `/#/dashboard-preview` and never loads a real user profile. The dashboard includes market search, asset detail dialogs, market lists, and gainers/losers. Trading, deposit, withdrawal, and bot controls explain their unavailable state and never submit orders or transfer funds.
 
 Brand assets: `dist/assets/aurex-logo.png` (generated logo), `dist/assets/aurex-icon.svg` (small-size brand icon). The old Horizon regulatory copy has been removed because it does not establish licenses for this brand. The GitHub repository URL remains unchanged.
+
+### Deposit page
+
+The authenticated `#/deposit` route and public `#/deposit-preview` show the deposit amount layout. Presets and USD validation lead to an amount review. Payment processing, receiving wallets, balance updates, and deposit records are not connected. No money is moved.
