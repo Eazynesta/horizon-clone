@@ -99,4 +99,8 @@ Brand assets: `dist/assets/aurex-logo.png` (generated logo), `dist/assets/aurex-
 
 ### Deposit page
 
-The authenticated `#/deposit` route and public `#/deposit-preview` show the deposit amount layout. Presets and USD validation lead to an amount review. Payment processing, receiving wallets, balance updates, and deposit records are not connected. No money is moved.
+The authenticated `#/deposit` route and public `#/deposit-preview` show the deposit amount layout. Presets and USD validation lead to currency/network selection and a clearly labeled address/QR placeholder. Payment processing, receiving wallets, balance updates, and deposit records are not connected. No money is moved.
+
+### Withdrawal and bot previews
+
+`#/withdraw` and `#/bots` use the existing verified sign-in check. Public visual previews are at `#/withdraw-preview` and `#/bots-preview`. Withdrawal submission only displays a placeholder message. Bot file selection displays a local filename without reading, uploading, or executing it. Passkey submission clears the sample input and displays a placeholder message. Settings are browser-local UI state only, with no running bots or balance changes.

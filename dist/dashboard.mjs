@@ -39,6 +39,7 @@ const paths = {
   down:'M3 7l6 6 4-4 8 10 M15 19h6v-6',
   bolt:'M13 2L3 14h8l-1 8 11-13h-8z',
   app:'M6 3l14 9L6 21z',
+  settings:'M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8 M9 2h6l1 4 4 1 2 5-3 3v4l-5 3-3-3H7l-4-4 1-4-2-4 4-3z',
   close:'M5 5l14 14 M19 5L5 19'
 };
 export function icon(name, extra='') { return `<svg class="ui-icon ${extra}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${paths[name] || paths.markets}"/></svg>`; }
@@ -98,8 +99,8 @@ export function mountDashboard(root, options) {
     const nav=e.target.closest('[data-nav]');
     if(nav) {
       const page=nav.dataset.nav;
-      if(page==='dashboard'||page==='markets'||page==='deposit') {
-        if(page==='deposit') { location.hash=options.preview?'/deposit-preview':'/deposit'; return; }
+      if(['dashboard','markets','deposit','withdraw','bots'].includes(page)) {
+        if(['deposit','withdraw','bots'].includes(page)) { location.hash='/'+page+(options.preview?'-preview':''); return; }
         if(options.preview && options.mainHTML) { location.hash='/dashboard-preview'; return; }
         if(options.preview) { options.view=page; mountDashboard(root,options); }
         else location.hash='/'+page;
