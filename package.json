@@ -1,11 +1,13 @@
 {
-  "name": "horizon-clone",
+  "name": "aurexmarkets-exchange",
   "version": "1.1.0",
   "private": true,
-  "description": "Horizon frontend with Supabase accounts and Vercel hosting",
+  "description": "Aurexmarkets Exchange dashboard with Supabase accounts and Vercel hosting",
   "scripts": {
     "dev": "node --env-file-if-exists=.env serve.cjs",
     "test": "node --test tests/*.test.cjs tests/*.test.mjs"
   },
-  "engines": { "node": ">=22" }
+  "engines": {
+    "node": ">=22"
+  }
 }

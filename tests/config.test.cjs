@@ -33,7 +33,7 @@ test('HTTP serves app and callback, refuses workspace files, and fails closed wi
   }
 });
 
-test('deployment defaults connect only the selected Horizon project', () => {
+test('deployment defaults connect only the selected Aurexmarkets project', () => {
   assert.equal(publicConfig({}).supabaseUrl, 'https://utfdajwoseumovoqxtev.supabase.co');
   assert.equal(publicConfig({}, {}), null);
 });

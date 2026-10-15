@@ -1,6 +1,6 @@
-# Horizon account application
+# Aurexmarkets Exchange account application
 
-A static recreation of the Horizon homepage with Supabase-backed email/password accounts.
+Aurexmarkets Exchange frontend with a responsive market dashboard and Supabase-backed email/password accounts.
 The original imagery is retained. Market values are sample content; trading and deposits are not implemented.
 
 ## Included
@@ -21,7 +21,7 @@ Requires Node.js 22 or newer. No dependency installation or build is needed.
 3. Run `node --env-file-if-exists=.env serve.cjs` or `npm run dev`.
 4. Open http://127.0.0.1:4174.
 
-The selected Horizon project is configured in `config/supabase-public.json`. These are intentionally public client settings, not server credentials. Environment variables can override them. Invalid overrides fail closed with HTTP 503. The database schema and Auth URL configuration below must still be applied.
+The selected Aurexmarkets Exchange project is configured in `config/supabase-public.json`. These are intentionally public client settings, not server credentials. Environment variables can override them. Invalid overrides fail closed with HTTP 503. The database schema and Auth URL configuration below must still be applied.
 
 ## Supabase setup (required before live signup)
 
@@ -61,7 +61,7 @@ Auth callback query parameters are cleared from the address bar after processing
 
 ## Verify before enabling real users
 
-Run `node --test tests/config.test.cjs tests/auth.test.mjs` or `npm test`.
+Run `node --test tests/*.test.cjs tests/*.test.mjs` or `npm test`.
 
 The tests cover validation, SDK payloads, error propagation, owner-scoped profile writes, public-key filtering, callbacks, and local HTTP isolation.
 They do not replace live Supabase testing. After configuration, test signup/verification, login, logout, recovery, email change, profile persistence, and two-user RLS isolation using test accounts you control.
@@ -90,3 +90,9 @@ git push
 ```
 
 Git saves local history; Vercel deployment follows the connected branch's pushes.
+
+## Market dashboard and branding
+
+Signing in opens `/#/dashboard`; profile settings remain at `/#/account`. A public, sample-only preview is available at `/#/dashboard-preview` and never loads a real user profile. The dashboard includes market search, asset detail dialogs, market lists, and gainers/losers. Trading, deposit, withdrawal, and bot controls explain their unavailable state and never submit orders or transfer funds.
+
+Brand assets: `dist/assets/aurex-logo.png` (generated logo), `dist/assets/aurex-icon.svg` (small-size brand icon). The old Horizon regulatory copy has been removed because it does not establish licenses for this brand. The GitHub repository URL remains unchanged.
