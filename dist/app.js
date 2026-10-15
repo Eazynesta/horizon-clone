@@ -3,6 +3,7 @@ import { mountDashboard } from './dashboard.mjs';
 import { mountDeposit } from './deposit.mjs';
 import { mountWithdrawal } from './withdraw.mjs';
 import { mountBots } from './bots.mjs';
+import { mountTrade } from './trade.mjs';
 
 const root = document.getElementById('root');
 const home = root.innerHTML;
@@ -177,7 +178,7 @@ async function renderExchange(token, view) {
   let profile;
   try { profile = await accounts.profile(user); } catch { /* The dashboard can load while profile storage is unavailable. */ }
   if (token !== routeId) return;
-  ({deposit:mountDeposit,withdraw:mountWithdrawal,bots:mountBots}[view] || mountDashboard)(root, {
+  ({deposit:mountDeposit,withdraw:mountWithdrawal,bots:mountBots,trade:mountTrade}[view] || mountDashboard)(root, {
     firstName: profile?.first_name || user.user_metadata?.first_name || user.email?.split('@')[0] || 'there',
     view,
     onLogout: async () => {
@@ -193,12 +194,13 @@ async function route() {
   root.onclick = null;
   const token = ++routeId;
   const page = location.hash.slice(2);
-  if (!initialized && ['account', 'dashboard', 'deposit', 'withdraw', 'bots', 'reset-password'].includes(page)) { shell('Connecting…', 'Checking account services.', ''); return; }
+  if (!initialized && ['account', 'dashboard', 'deposit', 'withdraw', 'bots', 'trade', 'reset-password'].includes(page)) { shell('Connecting…', 'Checking account services.', ''); return; }
+  if (page === 'trade-preview') { mountTrade(root, {preview:true}); return; }
   if (page === 'withdraw-preview') { mountWithdrawal(root, {preview:true}); return; }
   if (page === 'bots-preview') { mountBots(root, {preview:true}); return; }
   if (page === 'deposit-preview') { mountDeposit(root, { firstName: 'Alex', preview: true }); return; }
   if (page === 'dashboard-preview') { mountDashboard(root, { firstName: 'Alex', preview: true }); window.scrollTo(0, 0); return; }
-  if (['dashboard','deposit','withdraw','bots'].includes(page) || (page === 'markets' && signedInUser)) return renderExchange(token, page);
+  if (['dashboard','deposit','withdraw','bots','trade'].includes(page) || (page === 'markets' && signedInUser)) return renderExchange(token, page);
   if (page === 'login' || page === 'signup') return renderAuth(page);
   if (page === 'forgot-password' || page === 'verify-email') return renderEmailFlow(page);
   if (page === 'account') {
@@ -223,7 +225,7 @@ async function start() {
       signedInUser = session?.user || null;
       if (event === 'PASSWORD_RECOVERY') recoveryMode = true;
       // Defer SDK calls outside the auth callback to avoid a session-lock deadlock.
-      if (event === 'SIGNED_OUT' && ['#/account', '#/dashboard', '#/deposit', '#/withdraw', '#/bots', '#/markets', '#/reset-password'].includes(location.hash)) {
+      if (event === 'SIGNED_OUT' && ['#/account', '#/dashboard', '#/deposit', '#/withdraw', '#/bots', '#/trade', '#/markets', '#/reset-password'].includes(location.hash)) {
         setTimeout(() => { location.hash = '/login'; }, 0);
       }
     });

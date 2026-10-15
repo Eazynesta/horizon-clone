@@ -104,3 +104,7 @@ The authenticated `#/deposit` route and public `#/deposit-preview` show the depo
 ### Withdrawal and bot previews
 
 `#/withdraw` and `#/bots` use the existing verified sign-in check. Public visual previews are at `#/withdraw-preview` and `#/bots-preview`. Withdrawal submission only displays a placeholder message. Bot file selection displays a local filename without reading, uploading, or executing it. Passkey submission clears the sample input and displays a placeholder message. Settings are browser-local UI state only, with no running bots or balance changes.
+
+### Trading workspace preview
+
+The protected `#/trade` route and public `#/trade-preview` offer sample pair selection, search, candle/line/area charts, timeframe controls, order book filters, recent trades, and Buy/Sell limit/market order previews. Totals and a sample 0.1% fee are calculated locally. Balances stay zero and Orders, History, and Positions remain empty. No live feed or order execution is connected.

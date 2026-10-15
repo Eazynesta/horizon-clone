@@ -99,8 +99,8 @@ export function mountDashboard(root, options) {
     const nav=e.target.closest('[data-nav]');
     if(nav) {
       const page=nav.dataset.nav;
-      if(['dashboard','markets','deposit','withdraw','bots'].includes(page)) {
-        if(['deposit','withdraw','bots'].includes(page)) { location.hash='/'+page+(options.preview?'-preview':''); return; }
+      if(['dashboard','markets','deposit','withdraw','bots','trade'].includes(page)) {
+        if(['deposit','withdraw','bots','trade'].includes(page)) { location.hash='/'+page+(options.preview?'-preview':''); return; }
         if(options.preview && options.mainHTML) { location.hash='/dashboard-preview'; return; }
         if(options.preview) { options.view=page; mountDashboard(root,options); }
         else location.hash='/'+page;
