@@ -1,3 +1,4 @@
+import {mountAdmin} from './admin.mjs';
 import {mountHelpChat} from './help-chat.mjs';
 import {bindMobileNavigation} from './navigation.mjs';
 import {passwordField,bindPasswordVisibility,countryPhoneField,normalizeSignupPhone} from './form-ui.mjs';
@@ -130,7 +131,8 @@ async function renderAccount(token) {
     <div class="settings-grid"><section class="settings-panel"><h2>Personal details</h2>${profileError ? '<p class="form-message error">Your profile could not be loaded. Please try again later.</p>' : form('profile-form', fields, 'Save profile')}</section>
     <section class="settings-panel"><h2>Email address</h2><p class="field-hint">Confirm the change from the emails Supabase sends to your current and new addresses.</p>${form('email-change-form', input('email', 'New email address', 'email', 'required maxlength="254" autocomplete="email"'), 'Request email change')}</section>
     <section class="settings-panel"><h2>Password</h2>${form('change-password-form', passwordFields, 'Change password')}</section>
-    <section class="settings-panel"><h2>Account information</h2><dl class="account-facts"><dt>Account created</dt><dd>${escape(new Date(user.created_at).toLocaleDateString())}</dd><dt>Last sign in</dt><dd>${escape(user.last_sign_in_at ? new Date(user.last_sign_in_at).toLocaleDateString() : 'This session')}</dd></dl><p class="field-hint">Market prices come from Kraken. Trading and deposits are not enabled.</p><a href="#/kyc" class="secondary-button">Identity verification</a><a href="#/dashboard" class="secondary-button">Open dashboard</a></section></div>`, true);
+    <section class="settings-panel"><h2>Account information</h2><dl class="account-facts"><dt>Account created</dt><dd>${escape(new Date(user.created_at).toLocaleDateString())}</dd><dt>Last sign in</dt><dd>${escape(user.last_sign_in_at ? new Date(user.last_sign_in_at).toLocaleDateString() : 'This session')}</dd></dl><p class="field-hint">Market prices come from Kraken. Trading execution is not enabled. Deposits and withdrawals are reviewed manually.</p><a href="#/admin" id="account-admin-link" class="secondary-button" hidden>Finance Admin</a><a href="#/kyc" class="secondary-button">Identity verification</a><a href="#/dashboard" class="secondary-button">Open dashboard</a></section></div>`, true);
+  accounts.client.from('finance_admin_memberships').select('user_id').eq('user_id',user.id).maybeSingle().then(({data})=>{if(data&&token===routeId)document.querySelector('#account-admin-link')?.removeAttribute('hidden');});
   if (profile) {
     $('#firstName').value = p.first_name; $('#lastName').value = p.last_name; $('#phone').value = p.phone;
     bindForm('profile-form', async (v) => { await accounts.saveProfile(user.id, v); notice('Profile saved.'); await route(); });
@@ -178,7 +180,7 @@ async function renderExchange(token, view) {
     getAccounts:async()=>{await accountsReady;if(!accounts)throw Error(connectionError||'Account services are unavailable.');return accounts;},
     onLogout:async()=>{await accountsReady;if(!accounts)throw Error('Account services unavailable.');await accounts.signOut();signedInUser=null;location.hash='/login';notice('You’re signed out.');}
   };
-  ({deposit:mountDeposit,withdraw:mountWithdrawal,bots:mountBots,trade:mountTrade,kyc:mountKyc}[view]||mountDashboard)(root,options);
+  ({admin:mountAdmin,deposit:mountDeposit,withdraw:mountWithdrawal,bots:mountBots,trade:mountTrade,kyc:mountKyc}[view]||mountDashboard)(root,options);
   let user;
   try{user=await requireUser();}
   catch{if(token!==routeId)return;if(!accounts){const main=root.querySelector('main');const error=document.createElement('p');error.className='service-banner';error.textContent=connectionError||'Account services unavailable. Please try again.';main.prepend(error);}else{signedInUser=null;location.hash='/login';notice('Please sign in to continue.');}return;}
@@ -195,13 +197,14 @@ async function route() {
   const token = ++routeId;
   const page = location.hash.slice(2);
 
+  if (page === 'admin-preview') {mountAdmin(root,{preview:true});return;}
   if (page === 'kyc-preview') { mountKyc(root,{preview:true});return; }
   if (page === 'trade-preview') { mountTrade(root, {preview:true}); return; }
   if (page === 'withdraw-preview') { mountWithdrawal(root, {preview:true}); return; }
   if (page === 'bots-preview') { mountBots(root, {preview:true}); return; }
   if (page === 'deposit-preview') { mountDeposit(root, { firstName: 'there', preview: true }); return; }
   if (page === 'dashboard-preview') { mountDashboard(root, { firstName: 'there', preview: true }); window.scrollTo(0, 0); return; }
-  if (['dashboard','deposit','withdraw','bots','trade','kyc'].includes(page) || (page === 'markets' && signedInUser)) return renderExchange(token, page);
+  if (['admin','dashboard','deposit','withdraw','bots','trade','kyc'].includes(page) || (page === 'markets' && signedInUser)) return renderExchange(token, page);
   if (page === 'login' || page === 'signup') return renderAuth(page);
   if (page === 'forgot-password' || page === 'verify-email') return renderEmailFlow(page);
   if (page === 'account') {
@@ -226,7 +229,7 @@ async function initializeAccounts() {
       signedInUser = session?.user || null;
       if (event === 'PASSWORD_RECOVERY') recoveryMode = true;
       // Defer SDK calls outside the auth callback to avoid a session-lock deadlock.
-      if (event === 'SIGNED_OUT' && ['#/account', '#/dashboard', '#/deposit', '#/withdraw', '#/bots', '#/trade', '#/kyc', '#/markets', '#/reset-password'].includes(location.hash)) {
+      if (event === 'SIGNED_OUT' && ['#/admin', '#/account', '#/dashboard', '#/deposit', '#/withdraw', '#/bots', '#/trade', '#/kyc', '#/markets', '#/reset-password'].includes(location.hash)) {
         setTimeout(() => { location.hash = '/login'; }, 0);
       }
     });

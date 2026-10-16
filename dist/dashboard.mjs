@@ -71,12 +71,13 @@ export function mountDashboard(root, options) {
   if(options.mainHTML) root.querySelector('main').innerHTML=options.mainHTML;
   const dialog=root.querySelector('#market-dialog');
   let lastFocus,selectedSymbol,walletRows=null,walletError='Sign in to view your balances.';
+  if(!options.preview&&options.getAccounts)Promise.resolve(options.getAccounts()).then(async accounts=>{const user=await accounts.user();if(!user)return;const {data}=await accounts.client.from('finance_admin_memberships').select('user_id').eq('user_id',user.id).maybeSingle();const nav=root.querySelector('#exchange-navigation');if(data&&nav?.isConnected&&!nav.querySelector('[data-nav="admin"]')){const b=document.createElement('button');b.className='exchange-nav-item'+(options.view==='admin'?' active':'');b.dataset.nav='admin';b.innerHTML=icon('shield')+'<span>Admin</span>';nav.append(b);}}).catch(()=>{});
   const walletMarker=root.querySelector('.header-balance');
   async function refreshWallet(){
     if(options.preview||!options.getAccounts)return;
     try{const accounts=await options.getAccounts();if(!accounts)return;const u=await accounts.user();if(!u)return;const {data,error}=await accounts.client.from('wallet_balances').select('asset,available::text,reserved::text').eq('user_id',u.id);if(error)throw error;if(!walletMarker.isConnected)return;walletRows=data.map(b=>({...b,available:b.available.replace(/(\.\d*?)0+$/,'$1').replace(/\.$/,''),reserved:b.reserved.replace(/(\.\d*?)0+$/,'$1').replace(/\.$/,'')}));const funded=data.filter(b=>Number(b.available)>0||Number(b.reserved)>0).length;walletMarker.querySelector('span').textContent=funded+' funded asset'+(funded===1?'':'s');const summary=root.querySelector('#wallet-summary');if(summary)summary.textContent=String(funded);}catch{walletError='Unable to load balances. Try again when your connection is restored.';}
   }
-  function walletHTML(){return walletRows?'<div class="wallet-asset-list">'+(walletRows.length?walletRows.map(b=>'<p><strong>'+escapeHTML(b.asset)+'</strong><span>'+escapeHTML(b.available)+' available · '+escapeHTML(b.reserved)+' held</span></p>').join(''):'<p>No deposits have been credited. Available balance: 0.</p>')+'</div><p class="dialog-explanation">Held amounts belong to withdrawal simulations. No on-chain payout is performed.</p>':'<p class="dialog-explanation">'+walletError+'</p>';}
+  function walletHTML(){return walletRows?'<div class="wallet-asset-list">'+(walletRows.length?walletRows.map(b=>'<p><strong>'+escapeHTML(b.asset)+'</strong><span>'+escapeHTML(b.available)+' available · '+escapeHTML(b.reserved)+' held</span></p>').join(''):'<p>No deposits have been credited. Available balance: 0.</p>')+'</div><p class="dialog-explanation">Reserved funds belong to pending withdrawals. Payouts are sent manually and their transaction hashes appear in withdrawal history.</p>':'<p class="dialog-explanation">'+walletError+'</p>';}
   window.addEventListener('wallet-updated',refreshWallet);window.addEventListener('focus',refreshWallet);
   const walletObserver=new MutationObserver(()=>{if(!walletMarker.isConnected){window.removeEventListener('wallet-updated',refreshWallet);window.removeEventListener('focus',refreshWallet);walletObserver.disconnect();}});walletObserver.observe(root,{childList:true,subtree:true});refreshWallet();
   function showDialog(title,content) {
@@ -98,8 +99,8 @@ export function mountDashboard(root, options) {
     const nav=e.target.closest('[data-nav]');
     if(nav) {
       const page=nav.dataset.nav;
-      if(['dashboard','markets','deposit','withdraw','bots','trade','kyc'].includes(page)) {
-        if(['deposit','withdraw','bots','trade','kyc'].includes(page)) { location.hash='/'+page+(options.preview?'-preview':''); return; }
+      if(['admin','dashboard','markets','deposit','withdraw','bots','trade','kyc'].includes(page)) {
+        if(['admin','deposit','withdraw','bots','trade','kyc'].includes(page)) { location.hash='/'+page+(options.preview?'-preview':''); return; }
         if(options.preview && options.mainHTML) { location.hash='/dashboard-preview'; return; }
         if(options.preview) { options.view=page; mountDashboard(root,options); }
         else location.hash='/'+page;
