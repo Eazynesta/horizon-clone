@@ -257,6 +257,6 @@ async function start() {
 }
 window.addEventListener('hashchange', () => { route().catch(() => notice('Unable to load this page. Please try again.')); });
 const badge = document.createElement('div');
-badge.className = 'demo-badge'; badge.textContent = 'Website recreation · Sample market data';
+badge.className = 'demo-badge'; badge.textContent = 'Website recreation · Trading is not enabled';
 document.body.append(badge);
 start().catch(() => notice('Unable to start account services. Please reload.'));

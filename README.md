@@ -108,3 +108,8 @@ The authenticated `#/deposit` route and public `#/deposit-preview` show the depo
 ### Trading workspace preview
 
 The protected `#/trade` route and public `#/trade-preview` offer sample pair selection, search, candle/line/area charts, timeframe controls, order book filters, recent trades, and Buy/Sell limit/market order previews. Totals and a sample 0.1% fee are calculated locally. Balances stay zero and Orders, History, and Positions remain empty. No live feed or order execution is connected.
+
+## Live market data
+The trade and trade-preview routes use Kraken public WebSocket v2 ticker, OHLC, book (depth 10), and trade channels for BTC/USDT, ETH/USDT, BNB/USDT, SOL/USDT, XRP/USDT. No API key is required. Other dashboard/marketing figures remain illustrative. Buy/Sell is still a preview and never places orders or changes balances.
+
+Vercel automatically exposes api/market-data.js for historical OHLC candles. The endpoint only permits the fixed markets and 60/240/1440/10080 minute intervals, times out upstream calls, and caches responses briefly. The local server exposes the same route. Stream history is merged by candle timestamp, preserving newer streamed candles. Navigation closes the socket; disconnections reconnect with bounded exponential backoff, and missing history/data is explicitly shown without synthetic fallback.

@@ -10,6 +10,7 @@ const server = http.createServer(async (req, res) => {
   res.setHeader('Cache-Control', 'no-store');
   try {
     const url = new URL(req.url, 'http://localhost');
+    if (url.pathname === '/api/market-data') return require('./api/market-data.js')(req, res);
     if (url.pathname === '/api/config') return config(req, res);
     if (!['GET', 'HEAD'].includes(req.method)) { res.writeHead(405); return res.end(); }
     const pathname = decodeURIComponent(url.pathname);
