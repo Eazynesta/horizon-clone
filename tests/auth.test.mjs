@@ -7,7 +7,7 @@ test('signup rejects mismatches before contacting Supabase', async () => {
   const service = createAccountService({ auth: { signUp() { calls++; } } }, 'https://example.com');
   await assert.rejects(service.signUp({ password: 'a-long-password', confirmPassword: 'different-password' }), /do not match/);
   assert.equal(calls, 0);
-  assert.throws(() => validatePassword('short', 'short'), /12 characters/);
+  assert.throws(() => validatePassword('short', 'short'), /8 characters/);
 });
 test('signup stores cosmetic profile metadata and a fixed same-origin callback', async () => {
   let payload;
@@ -56,3 +56,5 @@ test('a profile update denied by RLS is surfaced to the user', async () => {
   const service = createAccountService({ from: () => chain }, 'https://example.com');
   await assert.rejects(service.saveProfile('id', { firstName: 'Jane', lastName: 'Doe' }), /Row not permitted/);
 });
+
+test('verified session checks are cached for navigation, refreshed for sensitive actions and cleared on signout',async()=>{let calls=0;const service=createAccountService({auth:{getUser:async()=>{calls++;return {data:{user:{id:'test'}}};},signOut:async()=>({data:{}})}},'https://example.com');await Promise.all([service.user(),service.user()]);assert.equal(calls,1);await service.user();assert.equal(calls,1);await service.user({fresh:true});assert.equal(calls,2);await service.signOut();await service.user();assert.equal(calls,3);});

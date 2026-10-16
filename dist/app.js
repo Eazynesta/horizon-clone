@@ -1,3 +1,7 @@
+import {mountHelpChat} from './help-chat.mjs';
+import {bindMobileNavigation} from './navigation.mjs';
+import {passwordField,bindPasswordVisibility,countryPhoneField,normalizeSignupPhone} from './form-ui.mjs';
+import { mountKyc } from './kyc.mjs';
 import { mountHomeMarkets } from './home-markets.mjs';
 import { connectAccounts } from './auth.mjs';
 import { mountDashboard } from './dashboard.mjs';
@@ -8,13 +12,12 @@ import { mountTrade } from './trade.mjs';
 
 const root = document.getElementById('root');
 const home = root.innerHTML;
-let accounts, connectionError, timer, routeId = 0, recoveryMode = false;
+let accounts, accountsReady, connectionError, timer, routeId = 0, recoveryMode = false;
 let signedInUser = null;
-let initialized = false;
 const $ = (selector, node = document) => node.querySelector(selector);
 const escape = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const input = (name, label, type = 'text', extra = '') => `<label class="field" for="${name}"><span>${label}</span><input id="${name}" name="${name}" type="${type}" ${extra}></label>`;
-const passwordFields = `${input('password', 'Password', 'password', 'required minlength="12" maxlength="128" autocomplete="new-password"')}${input('confirmPassword', 'Confirm password', 'password', 'required minlength="12" maxlength="128" autocomplete="new-password"')}<p class="field-hint">Use at least 12 characters. A password manager can help.</p>`;
+const input = (name, label, type = 'text', extra = '') => type==='password'?passwordField(name,label,extra): `<label class="field" for="${name}"><span>${label}</span><input id="${name}" name="${name}" type="${type}" ${extra}></label>`;
+const passwordFields = `${input('password', 'Password', 'password', 'required minlength="8" maxlength="128" autocomplete="new-password"')}${input('confirmPassword', 'Confirm password', 'password', 'required minlength="8" maxlength="128" autocomplete="new-password"')}<p class="field-hint">Use at least 8 characters. A password manager can help.</p>`;
 const emailField = input('email', 'Email', 'email', 'required maxlength="254" autocomplete="email" placeholder="you@example.com"');
 
 function notice(text) {
@@ -55,6 +58,7 @@ function form(id, content, button, foot = '') {
 }
 function shell(title, description, content, wide = false) {
   root.innerHTML = `<main class="account-page"><a href="#/" class="back-link">← Back to home</a><section class="account-card ${wide ? 'wide' : ''}"><a href="#/" class="account-brand"><img src="/assets/aurex-logo.png" alt="Aurexmarkets Exchange"></a><p class="eyebrow">YOUR AUREXMARKETS ACCOUNT</p><h1 tabindex="-1">${title}</h1><p class="account-description">${description}</p>${content}</section></main>`;
+  bindPasswordVisibility(root);
   $('h1', root)?.focus({ preventScroll: true }); window.scrollTo(0, 0);
 }
 function connectionBanner() {
@@ -64,12 +68,12 @@ function renderAuth(page) {
   const signup = page === 'signup';
   const foot = signup ? '<p class="account-foot">Already have an account? <a href="#/login">Sign in</a></p>' : '<a class="forgot-link" href="#/forgot-password">Forgot password?</a><p class="account-foot">New here? <a href="#/signup">Create an account</a></p>';
   const fields = signup
-    ? '<div class="field-row">' + input('firstName', 'First name', 'text', 'required maxlength="80" autocomplete="given-name"') + input('lastName', 'Last name', 'text', 'required maxlength="80" autocomplete="family-name"') + '</div>' + emailField + input('phone', 'Phone number (optional)', 'tel', 'maxlength="24" autocomplete="tel" placeholder="+254712345678"') + passwordFields
+    ? '<div class="field-row">' + input('firstName', 'First name', 'text', 'required maxlength="80" autocomplete="given-name"') + input('lastName', 'Last name', 'text', 'required maxlength="80" autocomplete="family-name"') + '</div>' + emailField + countryPhoneField() + passwordFields
     : emailField + input('password', 'Password', 'password', 'required autocomplete="current-password"');
   shell(signup ? 'Create your account' : 'Welcome back', signup ? 'One account. Your profile, your preferences, your next step.' : 'Sign in to manage your Aurexmarkets Exchange account.', connectionBanner() + form('auth-form', fields, signup ? 'Create account' : 'Sign in', foot));
   bindForm('auth-form', async (v, f) => {
     if (signup) {
-      const data = await accounts.signUp(v);
+      const data = await accounts.signUp(normalizeSignupPhone(v));
       if (data.session) { location.hash = '/dashboard'; return; }
       f.reset();
       shell('Check your inbox', 'Follow the confirmation link to verify your email, then sign in. Open the link in this browser to complete verification.', '<p class="verification-icon" aria-hidden="true">✉</p><a class="primary-button" href="#/login">Go to sign in</a><p class="account-foot">Need another confirmation email? <a href="#/verify-email">Resend email</a></p>');
@@ -90,6 +94,7 @@ function renderEmailFlow(page) {
   });
 }
 async function requireUser() {
+  await accountsReady;
   if (!accounts) throw new Error(connectionError || 'Account services are unavailable.');
   const user = await accounts.user(); // Verified by Supabase, not just browser storage.
   if (!user) throw new Error('Please sign in to continue.');
@@ -119,13 +124,13 @@ async function renderAccount(token) {
   try { profile = await accounts.profile(user); } catch (error) { profileError = error; }
   if (token !== routeId) return;
   const p = profile || {};
-  const fields = '<div class="field-row">' + input('firstName', 'First name', 'text', 'required maxlength="80" autocomplete="given-name"') + input('lastName', 'Last name', 'text', 'required maxlength="80" autocomplete="family-name"') + '</div>' + input('phone', 'Phone number (optional)', 'tel', 'maxlength="24" autocomplete="tel" placeholder="+254712345678"');
+  const fields = '<div class="field-row">' + input('firstName', 'First name', 'text', 'required maxlength="80" autocomplete="given-name"') + input('lastName', 'Last name', 'text', 'required maxlength="80" autocomplete="family-name"') + '</div>' + input('phone', 'Phone number (optional)', 'tel', 'maxlength="24" autocomplete="tel" placeholder="International phone number"');
   shell('Your account', 'Manage your personal details and account security.', `
     <div class="account-summary"><div class="avatar" aria-hidden="true">${escape((p.first_name || user.email || 'H')[0].toUpperCase())}</div><div><strong>${escape([p.first_name, p.last_name].filter(Boolean).join(' ') || 'Aurexmarkets Exchange member')}</strong><p>${escape(user.email)}</p><span class="status-pill">${user.email_confirmed_at ? 'Email verified' : 'Email verification pending'}</span></div><button id="logout" class="secondary-button">Sign out</button></div>
     <div class="settings-grid"><section class="settings-panel"><h2>Personal details</h2>${profileError ? '<p class="form-message error">Your profile could not be loaded. Please try again later.</p>' : form('profile-form', fields, 'Save profile')}</section>
     <section class="settings-panel"><h2>Email address</h2><p class="field-hint">Confirm the change from the emails Supabase sends to your current and new addresses.</p>${form('email-change-form', input('email', 'New email address', 'email', 'required maxlength="254" autocomplete="email"'), 'Request email change')}</section>
     <section class="settings-panel"><h2>Password</h2>${form('change-password-form', passwordFields, 'Change password')}</section>
-    <section class="settings-panel"><h2>Account information</h2><dl class="account-facts"><dt>Account created</dt><dd>${escape(new Date(user.created_at).toLocaleDateString())}</dd><dt>Last sign in</dt><dd>${escape(user.last_sign_in_at ? new Date(user.last_sign_in_at).toLocaleDateString() : 'This session')}</dd></dl><p class="field-hint">Market prices come from Kraken. Trading and deposits are not enabled.</p><a href="#/dashboard" class="secondary-button">Open dashboard</a></section></div>`, true);
+    <section class="settings-panel"><h2>Account information</h2><dl class="account-facts"><dt>Account created</dt><dd>${escape(new Date(user.created_at).toLocaleDateString())}</dd><dt>Last sign in</dt><dd>${escape(user.last_sign_in_at ? new Date(user.last_sign_in_at).toLocaleDateString() : 'This session')}</dd></dl><p class="field-hint">Market prices come from Kraken. Trading and deposits are not enabled.</p><a href="#/kyc" class="secondary-button">Identity verification</a><a href="#/dashboard" class="secondary-button">Open dashboard</a></section></div>`, true);
   if (profile) {
     $('#firstName').value = p.first_name; $('#lastName').value = p.last_name; $('#phone').value = p.phone;
     bindForm('profile-form', async (v) => { await accounts.saveProfile(user.id, v); notice('Profile saved.'); await route(); });
@@ -144,6 +149,7 @@ const slides = [
   ['Grow Your Wealth Faster', 'Explore the crypto market with powerful tools and a seamless trading experience.']
 ];
 function initHome() {
+  bindMobileNavigation(root);
   mountHomeMarkets(root);
   const hero = $('section');
   if (!hero) return;
@@ -168,27 +174,19 @@ function initHome() {
 }
 
 async function renderExchange(token, view) {
-  shell('Loading your dashboard…', 'Checking your session securely.', '');
+  const options={firstName:signedInUser?.user_metadata?.first_name||'there',view,
+    getAccounts:async()=>{await accountsReady;if(!accounts)throw Error(connectionError||'Account services are unavailable.');return accounts;},
+    onLogout:async()=>{await accountsReady;if(!accounts)throw Error('Account services unavailable.');await accounts.signOut();signedInUser=null;location.hash='/login';notice('You’re signed out.');}
+  };
+  ({deposit:mountDeposit,withdraw:mountWithdrawal,bots:mountBots,trade:mountTrade,kyc:mountKyc}[view]||mountDashboard)(root,options);
   let user;
-  try { user = await requireUser(); }
-  catch {
-    if (token !== routeId) return;
-    if (!accounts) shell('Account services unavailable', 'Please try again shortly.', connectionBanner() + '<a class="primary-button" href="#/login">Back to sign in</a>');
-    else { location.hash = '/login'; notice('Please sign in to view your dashboard.'); }
-    return;
+  try{user=await requireUser();}
+  catch{if(token!==routeId)return;if(!accounts){const main=root.querySelector('main');const error=document.createElement('p');error.className='service-banner';error.textContent=connectionError||'Account services unavailable. Please try again.';main.prepend(error);}else{signedInUser=null;location.hash='/login';notice('Please sign in to continue.');}return;}
+  let profile;try{profile=await accounts.profile(user);}catch{}
+  if(token!==routeId)return;
+  if(view==='dashboard'||view==='markets'){
+    const heading=root.querySelector('.dashboard-welcome h1');if(heading&&view!=='markets')heading.textContent='Welcome back, '+(profile?.first_name||user.user_metadata?.first_name||'there');
   }
-  let profile;
-  try { profile = await accounts.profile(user); } catch { /* The dashboard can load while profile storage is unavailable. */ }
-  if (token !== routeId) return;
-  ({deposit:mountDeposit,withdraw:mountWithdrawal,bots:mountBots,trade:mountTrade}[view] || mountDashboard)(root, {
-    firstName: profile?.first_name || user.user_metadata?.first_name || user.email?.split('@')[0] || 'there',
-    view,
-    onLogout: async () => {
-      await accounts.signOut(); signedInUser = null;
-      location.hash = '/login'; notice('You’re signed out.');
-    }
-  });
-  window.scrollTo(0, 0);
 }
 
 async function route() {
@@ -196,17 +194,17 @@ async function route() {
   root.onclick = null;
   const token = ++routeId;
   const page = location.hash.slice(2);
-  if (!initialized && ['account', 'dashboard', 'deposit', 'withdraw', 'bots', 'trade', 'reset-password'].includes(page)) { shell('Connecting…', 'Checking account services.', ''); return; }
+
+  if (page === 'kyc-preview') { mountKyc(root,{preview:true});return; }
   if (page === 'trade-preview') { mountTrade(root, {preview:true}); return; }
   if (page === 'withdraw-preview') { mountWithdrawal(root, {preview:true}); return; }
   if (page === 'bots-preview') { mountBots(root, {preview:true}); return; }
   if (page === 'deposit-preview') { mountDeposit(root, { firstName: 'there', preview: true }); return; }
   if (page === 'dashboard-preview') { mountDashboard(root, { firstName: 'there', preview: true }); window.scrollTo(0, 0); return; }
-  if (['dashboard','deposit','withdraw','bots','trade'].includes(page) || (page === 'markets' && signedInUser)) return renderExchange(token, page);
+  if (['dashboard','deposit','withdraw','bots','trade','kyc'].includes(page) || (page === 'markets' && signedInUser)) return renderExchange(token, page);
   if (page === 'login' || page === 'signup') return renderAuth(page);
   if (page === 'forgot-password' || page === 'verify-email') return renderEmailFlow(page);
   if (page === 'account') {
-    shell('Loading your account…', 'Checking your session securely.', '');
     return renderAccount(token);
   }
   if (page === 'reset-password') {
@@ -219,15 +217,16 @@ async function route() {
   if (page === 'markets') $('table')?.scrollIntoView();
   if (page === 'trade') notice('Trading is not enabled. You can manage your account from My account.');
 }
-async function start() {
-  await route();
+async function initializeAccounts() {
+  const callbackFlow=location.pathname==='/auth/callback';
   try {
     accounts = await connectAccounts();
     accounts.client.auth.onAuthStateChange((event, session) => {
+      if(event==='SIGNED_OUT'||(event==='SIGNED_IN'&&signedInUser?.id!==session?.user?.id))accounts.clearUserCache();
       signedInUser = session?.user || null;
       if (event === 'PASSWORD_RECOVERY') recoveryMode = true;
       // Defer SDK calls outside the auth callback to avoid a session-lock deadlock.
-      if (event === 'SIGNED_OUT' && ['#/account', '#/dashboard', '#/deposit', '#/withdraw', '#/bots', '#/trade', '#/markets', '#/reset-password'].includes(location.hash)) {
+      if (event === 'SIGNED_OUT' && ['#/account', '#/dashboard', '#/deposit', '#/withdraw', '#/bots', '#/trade', '#/kyc', '#/markets', '#/reset-password'].includes(location.hash)) {
         setTimeout(() => { location.hash = '/login'; }, 0);
       }
     });
@@ -250,15 +249,14 @@ async function start() {
       notice(error.message || 'Unable to complete this email link.');
     } else connectionError = error.message || 'Account services are unavailable.';
   }
-  initialized = true;
-  // Keep typed values intact if the configuration response arrives during typing.
-  const currentForm = $('form');
-  const hasInput = currentForm && [...currentForm.querySelectorAll('input')].some(i => i.value);
-  if (!hasInput) await route();
-  else $('.service-banner')?.remove();
+  document.querySelector('.service-banner')?.remove();
+  if(callbackFlow)setTimeout(()=>route().catch(()=>notice('Unable to open your account.')),0);
+
 }
 window.addEventListener('hashchange', () => { route().catch(() => notice('Unable to load this page. Please try again.')); });
 const badge = document.createElement('div');
 badge.className = 'demo-badge'; badge.textContent = 'Website recreation · Trading is not enabled';
 document.body.append(badge);
-start().catch(() => notice('Unable to start account services. Please reload.'));
+mountHelpChat();
+accountsReady=initializeAccounts();
+route().catch(()=>notice('Unable to open this page. Please try again.'));

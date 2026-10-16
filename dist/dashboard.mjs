@@ -1,3 +1,4 @@
+import {bindMobileNavigation,menuIcon} from './navigation.mjs';
 import { MARKET_ASSETS, overviewAssets, overviewState, bindOverview, requestHistory } from './market-overview.mjs';
 export const ASSETS=MARKET_ASSETS;
 export const escapeHTML = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -7,6 +8,7 @@ export const filterAssets = query => ASSETS.filter(a => (a.symbol + ' ' + a.name
 export const gainers = (assets=overviewAssets()) => assets.filter(a => a.change > 0).sort((a,b) => b.change-a.change).slice(0,4);
 export const losers = (assets=overviewAssets()) => assets.filter(a => a.change < 0).sort((a,b) => a.change-b.change).slice(0,4);
 const paths = {
+  kyc:'M12 2l9 4v6c0 5-9 10-9 10S3 17 3 12V6z M8 12l3 3 5-6',
   dashboard:'M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z',
   trade:'M3 17l6-6 4 4 8-10 M15 5h6v6',
   markets:'M3 3v18h18 M7 15v-5 M12 17V6 M17 17v-8',
@@ -45,12 +47,13 @@ function ranking(title, assets, negative=false) {
 }
 export function dashboardHTML({firstName='there',preview=false,view='dashboard'}={}) {
   const top=gainers()[0],bottom=losers()[0];
-  const nav=[['dashboard','Dashboard'],['trade','Trade'],['markets','Markets'],['deposit','Deposit'],['withdraw','Withdraw'],['bots','Bots']];
+  const nav=[['dashboard','Dashboard'],['trade','Trade'],['markets','Markets'],['deposit','Deposit'],['withdraw','Withdraw'],['bots','Bots'],['kyc','Verification']];
   return `<div class="exchange-dashboard">
     <header class="exchange-header"><a class="exchange-logo" href="#/" aria-label="Aurexmarkets Exchange home"><img src="/assets/aurex-logo.png" alt="Aurexmarkets Exchange"></a>
-      <nav class="exchange-nav" aria-label="Exchange navigation">${nav.map(([id,label])=>`<button data-nav="${id}" class="exchange-nav-item ${view===id?'active':''}" ${view===id?'aria-current="page"':''}>${icon(id)}<span>${label}</span></button>`).join('')}</nav>
+      <nav id="exchange-navigation" data-mobile-navigation class="exchange-nav" aria-label="Exchange navigation">${nav.map(([id,label])=>`<button data-nav="${id}" class="exchange-nav-item ${view===id?'active':''}" ${view===id?'aria-current="page"':''}>${icon(id)}<span>${label}</span></button>`).join('')}</nav>
       <label class="market-search">${icon('search')}<input id="market-search" type="search" placeholder="Search markets..." aria-label="Search markets" maxlength="60"></label>
       <div class="header-tools"><button class="get-app" data-action="app" aria-label="Get App">${icon('app')}<span>Get App</span></button><button class="header-balance" data-action="balance">${icon('wallet')}<span>Wallet unavailable</span></button><button class="icon-button security-icon" data-action="security" aria-label="Account security">${icon('shield')}</button><button class="icon-button notification-button" data-action="notifications" aria-label="Notifications">${icon('bell')}</button><a class="icon-button" href="${preview?'#/login':'#/account'}" aria-label="Profile settings">${icon('user')}</a><button class="icon-button logout-button" data-action="${preview?'signin':'logout'}" aria-label="${preview?'Sign in':'Sign out'}">${icon('logout')}</button></div>
+      <button class="mobile-menu-button" data-mobile-menu aria-controls="exchange-navigation" aria-expanded="false" aria-label="Open navigation menu">${menuIcon}</button>
     </header>
     <main>
       <section class="dashboard-welcome"><div class="welcome-heading"><div><h1>${view==='markets'?'Explore the markets':`Welcome back, ${escapeHTML(firstName)}`}</h1><p>Here's the latest market overview.</p></div><div class="welcome-actions"><button class="secondary-button" data-nav="markets">${icon('markets')} Markets</button><button class="primary-button" data-nav="trade">${icon('bolt')} Trade Now</button></div></div>
@@ -64,6 +67,7 @@ export function dashboardHTML({firstName='there',preview=false,view='dashboard'}
 }
 export function mountDashboard(root, options) {
   root.innerHTML=dashboardHTML(options);
+  bindMobileNavigation(root);
   if(options.mainHTML) root.querySelector('main').innerHTML=options.mainHTML;
   const dialog=root.querySelector('#market-dialog');
   let lastFocus,selectedSymbol;
@@ -86,8 +90,8 @@ export function mountDashboard(root, options) {
     const nav=e.target.closest('[data-nav]');
     if(nav) {
       const page=nav.dataset.nav;
-      if(['dashboard','markets','deposit','withdraw','bots','trade'].includes(page)) {
-        if(['deposit','withdraw','bots','trade'].includes(page)) { location.hash='/'+page+(options.preview?'-preview':''); return; }
+      if(['dashboard','markets','deposit','withdraw','bots','trade','kyc'].includes(page)) {
+        if(['deposit','withdraw','bots','trade','kyc'].includes(page)) { location.hash='/'+page+(options.preview?'-preview':''); return; }
         if(options.preview && options.mainHTML) { location.hash='/dashboard-preview'; return; }
         if(options.preview) { options.view=page; mountDashboard(root,options); }
         else location.hash='/'+page;
@@ -99,7 +103,7 @@ export function mountDashboard(root, options) {
     const action=e.target.closest('[data-action]')?.dataset.action;
     if(action==='logout'){const b=e.target.closest('button');b.disabled=true;try{await options.onLogout();}catch{b.disabled=false;showDialog('Unable to sign out','<p class="dialog-explanation">Check your connection and try again.</p>');}}
     if(action==='signin')location.hash='/login';
-    if(action==='security')location.hash=options.preview?'/login':'/account';
+    if(action==='security')location.hash=options.preview?'/kyc-preview':'/kyc';
     if(action==='notifications')showDialog('Notifications','<div class="notification-item">'+icon('shield','positive')+'<div><strong>Welcome to Aurexmarkets Exchange</strong><p>Manage your personal details and account security from your profile.</p></div></div>');
     if(action==='balance')showDialog('Account balance','<p class="dialog-explanation">No funded wallet is connected. Trading, deposits, and withdrawals are not enabled.</p>');
     if(action==='app')showDialog('Aurexmarkets on mobile','<p class="dialog-explanation">The native app is not available yet. You can use this responsive website on your phone.</p>');

@@ -11,10 +11,10 @@ function loadSDK() {
   });
   return sdkPromise;
 }
-export const PASSWORD_MIN_LENGTH = 12;
+export const PASSWORD_MIN_LENGTH = 8;
 
 export function validatePassword(password, confirmation) {
-  if (password.length < PASSWORD_MIN_LENGTH) throw new Error('Use a password with at least 12 characters.');
+  if (password.length < PASSWORD_MIN_LENGTH) throw new Error('Use a password with at least 8 characters.');
   if (password !== confirmation) throw new Error('Your passwords do not match.');
 }
 export function profileValues(values) {
@@ -30,6 +30,8 @@ export function profileValues(values) {
   return { first_name, last_name, phone };
 }
 export function createAccountService(client, origin) {
+  let verifiedUser=null, verifiedAt=0, userRequest, generation=0; const profiles=new Map();
+  const clearUserCache=()=>{generation++;verifiedUser=null;verifiedAt=0;profiles.clear();};
   async function checked(result) {
     const { data, error } = await result;
     if (error) throw error;
@@ -37,7 +39,12 @@ export function createAccountService(client, origin) {
   }
   return {
     client,
-    async user() { return (await checked(client.auth.getUser())).user; },
+    clearUserCache,
+    async user({fresh=false}={}) {
+      if(!fresh&&verifiedUser&&Date.now()-verifiedAt<60000)return verifiedUser;
+      if(!userRequest){const current=generation;userRequest=checked(client.auth.getUser()).then(data=>{if(current!==generation)throw Error('Your session changed. Please sign in again.');verifiedUser=data.user;verifiedAt=Date.now();return verifiedUser;}).catch(error=>{clearUserCache();throw error;}).finally(()=>{userRequest=null;});}
+      return userRequest;
+    },
     async signUp(values) {
       validatePassword(values.password, values.confirmPassword);
       const data = profileValues(values);
@@ -47,9 +54,10 @@ export function createAccountService(client, origin) {
       }));
     },
     async signIn(email, password) {
-      return checked(client.auth.signInWithPassword({ email: email.trim(), password }));
+      clearUserCache();
+      const data=await checked(client.auth.signInWithPassword({ email: email.trim(), password }));if(data.user){verifiedUser=data.user;verifiedAt=Date.now();}return data;
     },
-    async signOut() { await checked(client.auth.signOut({ scope: 'local' })); },
+    async signOut() { await checked(client.auth.signOut({ scope: 'local' })); clearUserCache(); },
     async resetPassword(email) {
       await checked(client.auth.resetPasswordForEmail(email.trim(), { redirectTo: `${origin}/auth/callback?flow=recovery` }));
     },
@@ -64,8 +72,9 @@ export function createAccountService(client, origin) {
       await checked(client.auth.updateUser({ email: email.trim() }, { emailRedirectTo: `${origin}/auth/callback` }));
     },
     async profile(user) {
+      const cached=profiles.get(user.id);if(cached&&Date.now()-cached.at<60000)return cached.value;
       const row = await checked(client.from('profiles').select('id, first_name, last_name, phone, created_at').eq('id', user.id).maybeSingle());
-      if (row) return row;
+      if (row) {profiles.set(user.id,{value:row,at:Date.now()});return row;}
       // Metadata is cosmetic only. Ownership always comes from the verified user.
       const metadata = user.user_metadata || {};
       const data = { id: user.id, first_name: String(metadata.first_name || '').slice(0, 80), last_name: String(metadata.last_name || '').slice(0, 80), phone: /^\+[1-9][0-9]{6,14}$/.test(metadata.phone || '') ? metadata.phone : '' };
@@ -76,12 +85,12 @@ export function createAccountService(client, origin) {
       return checked(result);
     },
     async saveProfile(userId, values) {
-      return checked(client.from('profiles').update(profileValues(values)).eq('id', userId).select().single());
+      const row=await checked(client.from('profiles').update(profileValues(values)).eq('id', userId).select().single());profiles.set(userId,{value:row,at:Date.now()});return row;
     }
   };
 }
 export async function connectAccounts() {
-  const response = await fetch('/api/config', { cache: 'no-store' });
+  const response = await fetch('/api/config', { cache: 'no-store', signal: AbortSignal.timeout(10000) });
   const config = await response.json();
   if (!response.ok) throw new Error(config.error || 'Account services are unavailable.');
   const { createClient } = await loadSDK();
