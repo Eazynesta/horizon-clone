@@ -57,7 +57,7 @@ export function dashboardHTML({firstName='there',preview=false,view='dashboard'}
     </header>
     <main>
       <section class="dashboard-welcome"><div class="welcome-heading"><div><h1>${view==='markets'?'Explore the markets':`Welcome back, ${escapeHTML(firstName)}`}</h1><p>Here's the latest market overview.</p></div><div class="welcome-actions"><button class="secondary-button" data-nav="markets">${icon('markets')} Markets</button><button class="primary-button" data-nav="trade">${icon('bolt')} Trade Now</button></div></div>
-      <div class="summary-grid"><article class="summary-card"><p>${icon('wallet')} Total Balance</p><strong class="summary-number">Not connected</strong></article><article class="summary-card"><p>${icon('volume')} 24h Volume · tracked USDT pairs</p><strong class="summary-number" id="overview-volume">—</strong></article><article class="summary-card"><p>${icon('trade','positive')} Top Gainer</p><strong class="summary-asset">${top?.symbol||'—'} <span class="positive">${percentage(top?.change)}</span></strong></article><article class="summary-card"><p>${icon('down','negative')} Top Loser</p><strong class="summary-asset">${bottom?.symbol||'—'} <span class="negative">${percentage(bottom?.change)}</span></strong></article></div></section>
+      <div class="summary-grid"><article class="summary-card"><p>${icon('wallet')} Funded Assets</p><strong class="summary-number" id="wallet-summary">—</strong></article><article class="summary-card"><p>${icon('volume')} 24h Volume · tracked USDT pairs</p><strong class="summary-number" id="overview-volume">—</strong></article><article class="summary-card"><p>${icon('trade','positive')} Top Gainer</p><strong class="summary-asset">${top?.symbol||'—'} <span class="positive">${percentage(top?.change)}</span></strong></article><article class="summary-card"><p>${icon('down','negative')} Top Loser</p><strong class="summary-asset">${bottom?.symbol||'—'} <span class="negative">${percentage(bottom?.change)}</span></strong></article></div></section>
       <div class="dashboard-ticker" aria-label="Live market ticker">${['BTC','BNB','SOL','XRP','ETH'].map(symbol=>{const a=overviewAssets().find(a=>a.symbol===symbol);return `<button data-asset="${a.symbol}">${coin(a)}<strong>${a.symbol}/USDT</strong><span>${money(a.price)}</span><span class="${a.change>=0?'positive':'negative'}">${percentage(a.change)}</span></button>`;}).join('')}</div>
       <div class="dashboard-content"><div class="dashboard-disclosure"><span class="sample-dot"></span><span id="overview-status" role="status">Connecting to Kraken…</span> · Rankings cover listed markets. Trading and money transfers are not enabled.</div><section aria-labelledby="assets-title"><div class="section-heading"><h2 id="assets-title">${view==='markets'?'All Markets':'Featured Markets'}</h2><button class="view-all" id="view-all">View All ${icon('arrow')}</button></div><div class="asset-grid" id="asset-grid">${overviewAssets().filter(a=>view==='markets'||a.trending).map(assetCard).join('')}</div><p id="search-empty" class="empty-market" hidden>No markets found. Try a name or symbol such as BTC.</p></section>
       <div class="ranking-grid">${ranking('Top Gainers',gainers())}${ranking('Top Losers',losers(),true)}</div>
@@ -70,7 +70,15 @@ export function mountDashboard(root, options) {
   bindMobileNavigation(root);
   if(options.mainHTML) root.querySelector('main').innerHTML=options.mainHTML;
   const dialog=root.querySelector('#market-dialog');
-  let lastFocus,selectedSymbol;
+  let lastFocus,selectedSymbol,walletRows=null,walletError='Sign in to view your balances.';
+  const walletMarker=root.querySelector('.header-balance');
+  async function refreshWallet(){
+    if(options.preview||!options.getAccounts)return;
+    try{const accounts=await options.getAccounts();if(!accounts)return;const u=await accounts.user();if(!u)return;const {data,error}=await accounts.client.from('wallet_balances').select('asset,available::text,reserved::text').eq('user_id',u.id);if(error)throw error;if(!walletMarker.isConnected)return;walletRows=data.map(b=>({...b,available:b.available.replace(/(\.\d*?)0+$/,'$1').replace(/\.$/,''),reserved:b.reserved.replace(/(\.\d*?)0+$/,'$1').replace(/\.$/,'')}));const funded=data.filter(b=>Number(b.available)>0||Number(b.reserved)>0).length;walletMarker.querySelector('span').textContent=funded+' funded asset'+(funded===1?'':'s');const summary=root.querySelector('#wallet-summary');if(summary)summary.textContent=String(funded);}catch{walletError='Unable to load balances. Try again when your connection is restored.';}
+  }
+  function walletHTML(){return walletRows?'<div class="wallet-asset-list">'+(walletRows.length?walletRows.map(b=>'<p><strong>'+escapeHTML(b.asset)+'</strong><span>'+escapeHTML(b.available)+' available · '+escapeHTML(b.reserved)+' held</span></p>').join(''):'<p>No deposits have been credited. Available balance: 0.</p>')+'</div><p class="dialog-explanation">Held amounts belong to withdrawal simulations. No on-chain payout is performed.</p>':'<p class="dialog-explanation">'+walletError+'</p>';}
+  window.addEventListener('wallet-updated',refreshWallet);window.addEventListener('focus',refreshWallet);
+  const walletObserver=new MutationObserver(()=>{if(!walletMarker.isConnected){window.removeEventListener('wallet-updated',refreshWallet);window.removeEventListener('focus',refreshWallet);walletObserver.disconnect();}});walletObserver.observe(root,{childList:true,subtree:true});refreshWallet();
   function showDialog(title,content) {
     lastFocus=document.activeElement;
     root.querySelector('#dialog-content').innerHTML=`<p class="eyebrow">AUREXMARKETS EXCHANGE</p><h2 id="market-dialog-title">${escapeHTML(title)}</h2>${content}`;
@@ -84,7 +92,7 @@ export function mountDashboard(root, options) {
     const a=overviewAssets().find(a=>a.symbol===symbol); if(!a)return; selectedSymbol=symbol; requestHistory(symbol);
     showDialog(a.pair||a.symbol+' · Market unavailable',dialogContent(a));
   }
-  function dialogContent(a){return `<div class="asset-modal-heading">${coin(a)}<div><p>${a.name}</p><strong>${money(a.price)}</strong></div><span class="change-badge ${a.change>=0?'positive':'negative'}">${percentage(a.change)}</span></div>${chart(a)}<dl class="market-facts"><dt>24h change</dt><dd class="${a.change>=0?'positive':'negative'}">${percentage(a.change)}</dd><dt>24h volume</dt><dd>${volumeLabel(a)}</dd><dt>Quote currency</dt><dd>${a.quote||'Unavailable'}</dd></dl><p class="dialog-explanation">Source: Kraken · ${overviewState().status}. Order execution is not connected, and no funds can be deposited or traded.</p>`;}
+  function dialogContent(a){return `<div class="asset-modal-heading">${coin(a)}<div><p>${a.name}</p><strong>${money(a.price)}</strong></div><span class="change-badge ${a.change>=0?'positive':'negative'}">${percentage(a.change)}</span></div>${chart(a)}<dl class="market-facts"><dt>24h change</dt><dd class="${a.change>=0?'positive':'negative'}">${percentage(a.change)}</dd><dt>24h volume</dt><dd>${volumeLabel(a)}</dd><dt>Quote currency</dt><dd>${a.quote||'Unavailable'}</dd></dl><p class="dialog-explanation">Source: Kraken · ${overviewState().status}. Order execution is not connected. Deposits use configured networks and manual review.</p>`;}
   root.onclick = async e=>{
     const asset=e.target.closest('[data-asset]');if(asset){showAsset(asset.dataset.asset);return;}
     const nav=e.target.closest('[data-nav]');
@@ -105,7 +113,7 @@ export function mountDashboard(root, options) {
     if(action==='signin')location.hash='/login';
     if(action==='security')location.hash=options.preview?'/kyc-preview':'/kyc';
     if(action==='notifications')showDialog('Notifications','<div class="notification-item">'+icon('shield','positive')+'<div><strong>Welcome to Aurexmarkets Exchange</strong><p>Manage your personal details and account security from your profile.</p></div></div>');
-    if(action==='balance')showDialog('Account balance','<p class="dialog-explanation">No funded wallet is connected. Trading, deposits, and withdrawals are not enabled.</p>');
+    if(action==='balance'){await refreshWallet();showDialog('Account balance',walletHTML());}
     if(action==='app')showDialog('Aurexmarkets on mobile','<p class="dialog-explanation">The native app is not available yet. You can use this responsive website on your phone.</p>');
   };
   bindOverview(root,()=>{
