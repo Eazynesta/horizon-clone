@@ -35,3 +35,7 @@ Every privileged action records its administrator, reason, request/account, time
 ## Verification
 
 Run the Node test suite and tests/funding-database.sql as a single SQL editor execution. The SQL suite runs synthetic users, session claims, deposit approval, withdrawal reservation/cancellation/processing/payment, corrections and access checks inside a transaction and rolls everything back. No funds are sent. tests/manual-finance-live-check.cjs is an optional authenticated API check for explicitly authorized disposable accounts supplied through stdin, preferably in a separate test project. No test credentials are committed.
+
+## Editable account table
+
+The All Registered Accounts table searches every registered user and pages 25 accounts at a time, including accounts with no wallet rows. Select a balance asset, edit the available balance cell, enter a reason and Save. The database locks the wallet row and checks the originally displayed available balance before applying the target. Stale writes are rejected rather than overwriting another deposit, withdrawal or admin update. Every saved target creates an admin command and the exact delta in the wallet ledger. Reserved amounts cannot be edited through cells.

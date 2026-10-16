@@ -56,12 +56,22 @@ insert into public.funding_requests(id,user_id,kind,asset,network,amount,address
 select set_config('request.jwt.claims','{"sub":"10000000-0000-4000-8000-000000000002","session_id":"20000000-0000-4000-8000-000000000002","role":"authenticated"}',true);
 insert into public.finance_admin_commands(action,request_id,note) values('reject_withdrawal','30000000-0000-4000-8000-000000000004','Synthetic rejection before any funds were sent');
 do $$begin if (select available from public.wallet_balances where user_id='10000000-0000-4000-8000-000000000001' and asset='BTC')<>0.7 or (select reserved from public.wallet_balances where user_id='10000000-0000-4000-8000-000000000001' and asset='BTC')<>0 then raise exception 'Rejection did not release hold';end if;end $$;
+set constraints all deferred;
+insert into public.finance_admin_commands(action,account_id,asset,amount,expected_available,note) values('set_available_balance','10000000-0000-4000-8000-000000000001','BTC',0.8,0.7,'Synthetic table balance edit');
+do $$declare page jsonb;begin
+if (select available from public.wallet_balances where user_id='10000000-0000-4000-8000-000000000001' and asset='BTC')<>0.8 then raise exception 'Cell edit not applied';end if;
+begin insert into public.finance_admin_commands(action,account_id,asset,amount,expected_available,note) values('set_available_balance','10000000-0000-4000-8000-000000000001','BTC',0.9,0.7,'Synthetic stale cell write');raise exception 'Stale balance overwrite allowed';exception when raise_exception then if sqlerrm='Stale balance overwrite allowed' then raise;end if;end;
+page:=public.finance_accounts_page('outsider-rollback@example.invalid',0);if (page->>'total')::integer<>1 or jsonb_array_length(page->'accounts'->0->'balances')<>0 then raise exception 'Zero-balance registered account missing';end if;
+end $$;
+insert into public.finance_admin_commands(action,account_id,asset,amount,expected_available,note) values('set_available_balance','10000000-0000-4000-8000-000000000001','BTC',0,0.8,'Synthetic zero balance cell edit');
+do $$begin if (select available from public.wallet_balances where user_id='10000000-0000-4000-8000-000000000001' and asset='BTC')<>0 or (select sum(available_delta) from public.wallet_ledger where user_id='10000000-0000-4000-8000-000000000001' and asset='BTC')<>0 then raise exception 'Zero target or ledger incorrect';end if;end $$;
+set constraints all immediate;
 reset role;
 delete from auth.sessions where id='20000000-0000-4000-8000-000000000002';
 set local role authenticated;
 do $$begin if finance.is_admin() then raise exception 'Revoked session retained admin rights';end if;begin perform public.finance_account_directory('');raise exception 'Revoked session read directory';exception when raise_exception then if sqlerrm='Revoked session read directory' then raise;end if;end;end $$;
 select set_config('request.jwt.claims','{"sub":"10000000-0000-4000-8000-000000000003","session_id":"20000000-0000-4000-8000-000000000003","role":"authenticated"}',true);
-do $$begin if exists(select 1 from public.wallet_balances) or exists(select 1 from public.funding_requests) or exists(select 1 from public.wallet_ledger) or exists(select 1 from public.finance_admin_commands) then raise exception 'Cross-account data leaked';end if;end $$;
+do $$begin if exists(select 1 from public.wallet_balances) or exists(select 1 from public.funding_requests) or exists(select 1 from public.wallet_ledger) or exists(select 1 from public.finance_admin_commands) then raise exception 'Cross-account data leaked';end if;begin perform public.finance_accounts_page('',0);raise exception 'Non-admin read account table';exception when raise_exception then if sqlerrm='Non-admin read account table' then raise;end if;end;end $$;
 reset role;
 select 'PASS: admin isolation, one-time deposit credit, withdrawal holds/cancel/processing/payment, audited balance correction, no negative balance or cross-account leaks' as result;
 rollback;
