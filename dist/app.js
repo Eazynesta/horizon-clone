@@ -1,3 +1,4 @@
+import { mountHomeMarkets } from './home-markets.mjs';
 import { connectAccounts } from './auth.mjs';
 import { mountDashboard } from './dashboard.mjs';
 import { mountDeposit } from './deposit.mjs';
@@ -124,7 +125,7 @@ async function renderAccount(token) {
     <div class="settings-grid"><section class="settings-panel"><h2>Personal details</h2>${profileError ? '<p class="form-message error">Your profile could not be loaded. Please try again later.</p>' : form('profile-form', fields, 'Save profile')}</section>
     <section class="settings-panel"><h2>Email address</h2><p class="field-hint">Confirm the change from the emails Supabase sends to your current and new addresses.</p>${form('email-change-form', input('email', 'New email address', 'email', 'required maxlength="254" autocomplete="email"'), 'Request email change')}</section>
     <section class="settings-panel"><h2>Password</h2>${form('change-password-form', passwordFields, 'Change password')}</section>
-    <section class="settings-panel"><h2>Account information</h2><dl class="account-facts"><dt>Account created</dt><dd>${escape(new Date(user.created_at).toLocaleDateString())}</dd><dt>Last sign in</dt><dd>${escape(user.last_sign_in_at ? new Date(user.last_sign_in_at).toLocaleDateString() : 'This session')}</dd></dl><p class="field-hint">Market prices on this recreation are illustrative. Trading and deposits are not enabled.</p><a href="#/dashboard" class="secondary-button">Open dashboard</a></section></div>`, true);
+    <section class="settings-panel"><h2>Account information</h2><dl class="account-facts"><dt>Account created</dt><dd>${escape(new Date(user.created_at).toLocaleDateString())}</dd><dt>Last sign in</dt><dd>${escape(user.last_sign_in_at ? new Date(user.last_sign_in_at).toLocaleDateString() : 'This session')}</dd></dl><p class="field-hint">Market prices come from Kraken. Trading and deposits are not enabled.</p><a href="#/dashboard" class="secondary-button">Open dashboard</a></section></div>`, true);
   if (profile) {
     $('#firstName').value = p.first_name; $('#lastName').value = p.last_name; $('#phone').value = p.phone;
     bindForm('profile-form', async (v) => { await accounts.saveProfile(user.id, v); notice('Profile saved.'); await route(); });
@@ -143,6 +144,7 @@ const slides = [
   ['Grow Your Wealth Faster', 'Explore the crypto market with powerful tools and a seamless trading experience.']
 ];
 function initHome() {
+  mountHomeMarkets(root);
   const hero = $('section');
   if (!hero) return;
   const backgrounds = [...hero.children].filter(x => x.className.includes('transition-opacity'));
@@ -198,8 +200,8 @@ async function route() {
   if (page === 'trade-preview') { mountTrade(root, {preview:true}); return; }
   if (page === 'withdraw-preview') { mountWithdrawal(root, {preview:true}); return; }
   if (page === 'bots-preview') { mountBots(root, {preview:true}); return; }
-  if (page === 'deposit-preview') { mountDeposit(root, { firstName: 'Alex', preview: true }); return; }
-  if (page === 'dashboard-preview') { mountDashboard(root, { firstName: 'Alex', preview: true }); window.scrollTo(0, 0); return; }
+  if (page === 'deposit-preview') { mountDeposit(root, { firstName: 'there', preview: true }); return; }
+  if (page === 'dashboard-preview') { mountDashboard(root, { firstName: 'there', preview: true }); window.scrollTo(0, 0); return; }
   if (['dashboard','deposit','withdraw','bots','trade'].includes(page) || (page === 'markets' && signedInUser)) return renderExchange(token, page);
   if (page === 'login' || page === 'signup') return renderAuth(page);
   if (page === 'forgot-password' || page === 'verify-email') return renderEmailFlow(page);
