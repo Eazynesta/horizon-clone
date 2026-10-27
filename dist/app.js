@@ -257,9 +257,6 @@ async function initializeAccounts() {
 
 }
 window.addEventListener('hashchange', () => { route().catch(() => notice('Unable to load this page. Please try again.')); });
-const badge = document.createElement('div');
-badge.className = 'demo-badge'; badge.textContent = 'Website recreation · Trading is not enabled';
-document.body.append(badge);
 mountHelpChat();
 accountsReady=initializeAccounts();
 route().catch(()=>notice('Unable to open this page. Please try again.'));
