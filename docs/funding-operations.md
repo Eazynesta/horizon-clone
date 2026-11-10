@@ -30,7 +30,11 @@ Select an account using email/name search, then choose asset, credit or debit, a
 
 Current blockchain fee rates are shown with source and timestamp. Bitcoin illustrates 140 vB and native ETH/BNB illustrates 21,000 gas; actual wallet transactions can differ. Token totals require sender-specific gas/resource estimation. TRON displays live energy and bandwidth rates. Kraken supplies informational USD conversions when a native transfer estimate is available. Estimates expire after 60 seconds and are never charged automatically. Sending wallets determine the actual network fee.
 
-Every privileged action records its administrator, reason, request/account, time and result. Wallet ledger entries reconcile available and reserved deltas. Public clients cannot edit balances, grant admin roles or mark requests paid directly. Sensitive operations require an existing live authenticated session and finance membership. Admin privileges can be revoked by a database operator.
+Finance commands record their administrator, reason, request/account, time and result. Wallet ledger entries reconcile available and reserved deltas. Sensitive operations require an existing live authenticated session and finance membership. Admin privileges can be revoked by a database operator.
+
+## Add an administrator
+
+Apply `supabase/admin-grants.sql` after `supabase/manual-finance-admin.sql` before deploying the updated admin page. In Finance Admin, open **Add an administrator**, enter the verified email of an existing Aurex account, and confirm the grant. The recipient gets full finance admin access, including the ability to add another administrator. The membership records who granted access and when. Submitting the same account again preserves its original membership.
 
 ## Verification
 

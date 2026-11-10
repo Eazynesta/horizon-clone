@@ -74,4 +74,52 @@ select set_config('request.jwt.claims','{"sub":"10000000-0000-4000-8000-00000000
 do $$begin if exists(select 1 from public.wallet_balances) or exists(select 1 from public.funding_requests) or exists(select 1 from public.wallet_ledger) or exists(select 1 from public.finance_admin_commands) then raise exception 'Cross-account data leaked';end if;begin perform public.finance_accounts_page('',0);raise exception 'Non-admin read account table';exception when raise_exception then if sqlerrm='Non-admin read account table' then raise;end if;end;end $$;
 reset role;
 select 'PASS: admin isolation, one-time deposit credit, withdrawal holds/cancel/processing/payment, audited balance correction, no negative balance or cross-account leaks' as result;
+
+update auth.users set email_confirmed_at=now() where email='outsider-rollback@example.invalid';
+set local role authenticated;
+do $$begin
+  begin
+    perform public.finance_grant_admin('outsider-rollback@example.invalid');
+    raise exception 'Non-admin granted access';
+  exception when insufficient_privilege then null;
+  end;
+end $$;
+
+select set_config('request.jwt.claims','{"sub":"10000000-0000-4000-8000-000000000002","session_id":"20000000-0000-4000-8000-000000000002","role":"authenticated"}',true);
+do $$begin
+  begin
+    perform public.finance_grant_admin('outsider-rollback@example.invalid');
+    raise exception 'Revoked session granted access';
+  exception when insufficient_privilege then null;
+  end;
+end $$;
+
+reset role;
+insert into auth.sessions(id,user_id) values('20000000-0000-4000-8000-000000000002','10000000-0000-4000-8000-000000000002');
+set local role authenticated;
+do $$begin
+  begin
+    perform public.finance_grant_admin('funding-rollback@example.invalid');
+    raise exception 'Unverified account received admin access';
+  exception when raise_exception then
+    if sqlerrm <> 'This account must verify its email before receiving admin access.' then raise;end if;
+  end;
+  if public.finance_grant_admin(' OUTSIDER-ROLLBACK@example.invalid ') is distinct from true then
+    raise exception 'Expected a new membership';
+  end if;
+  if public.finance_grant_admin('outsider-rollback@example.invalid') is distinct from false then
+    raise exception 'Repeat grant should be a no-op';
+  end if;
+end $$;
+
+select set_config('request.jwt.claims','{"sub":"10000000-0000-4000-8000-000000000003","session_id":"20000000-0000-4000-8000-000000000003","role":"authenticated"}',true);
+do $$begin
+  if not finance.is_admin() then raise exception 'New admin cannot use their existing session';end if;
+  if not exists (
+    select 1 from public.finance_admin_memberships
+    where user_id=auth.uid() and granted_by='10000000-0000-4000-8000-000000000002'
+  ) then raise exception 'Grant actor was not recorded';end if;
+end $$;
+reset role;
+select 'PASS: only live administrators can grant access, and repeat grants preserve the original membership' as result;
 rollback;
