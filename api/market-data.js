@@ -1,4 +1,4 @@
-const PAIRS={BTC:'XBTUSDT',ETH:'ETHUSDT',BNB:'BNBUSDT',SOL:'SOLUSDT',XRP:'XRPUSDT',YFI:'YFIUSD',EGLD:'EGLDUSD',KSM:'KSMUSD',ZEC:'XZECZUSD',BCH:'BCHUSDT',DYDX:'DYDXUSD',LRC:'LRCUSD',KAVA:'KAVAUSD',WOO:'WOOUSD',DOGE:'XDGUSDT',ADA:'ADAUSDT',TRX:'TRXUSD'};
+const PAIRS={PAXG:'PAXGUSD',BTC:'XBTUSDT',ETH:'ETHUSDT',BNB:'BNBUSDT',SOL:'SOLUSDT',XRP:'XRPUSDT',YFI:'YFIUSD',EGLD:'EGLDUSD',KSM:'KSMUSD',ZEC:'XZECZUSD',BCH:'BCHUSDT',DYDX:'DYDXUSD',LRC:'LRCUSD',KAVA:'KAVAUSD',WOO:'WOOUSD',DOGE:'XDGUSDT',ADA:'ADAUSDT',TRX:'TRXUSD'};
 module.exports=async function(req,res){
  if(req.method!=='GET'){res.statusCode=405;return res.end();}
  const url=new URL(req.url,'http://localhost'),symbol=url.searchParams.get('symbol')?.replace(/\/(USDT|USD)$/,''),interval=Number(url.searchParams.get('interval'));

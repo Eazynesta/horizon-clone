@@ -8,6 +8,7 @@ import { connectAccounts } from './auth.mjs';
 import { mountDashboard } from './dashboard.mjs';
 import { mountDeposit } from './deposit.mjs';
 import { mountWithdrawal } from './withdraw.mjs';
+import { mountRealBots } from './real-bots.mjs';
 import { mountBots } from './bots.mjs';
 import { mountTrade } from './trade.mjs';
 
@@ -180,10 +181,15 @@ async function renderExchange(token, view) {
     getAccounts:async()=>{await accountsReady;if(!accounts)throw Error(connectionError||'Account services are unavailable.');return accounts;},
     onLogout:async()=>{await accountsReady;if(!accounts)throw Error('Account services unavailable.');await accounts.signOut();signedInUser=null;location.hash='/login';notice('You’re signed out.');}
   };
-  ({admin:mountAdmin,deposit:mountDeposit,withdraw:mountWithdrawal,bots:mountBots,trade:mountTrade,kyc:mountKyc}[view]||mountDashboard)(root,options);
+  const tradingPage={trade:mountTrade,'real-bots':mountRealBots}[view];
+  if(tradingPage){
+    root.innerHTML='<p class="service-banner" role="status">Checking your account…</p>';
+  }else ({admin:mountAdmin,deposit:mountDeposit,withdraw:mountWithdrawal,bots:mountBots,kyc:mountKyc}[view]||mountDashboard)(root,options);
   let user;
   try{user=await requireUser();}
-  catch{if(token!==routeId)return;if(!accounts){const main=root.querySelector('main');const error=document.createElement('p');error.className='service-banner';error.textContent=connectionError||'Account services unavailable. Please try again.';main.prepend(error);}else{signedInUser=null;location.hash='/login';notice('Please sign in to continue.');}return;}
+  catch{if(token!==routeId)return;if(!accounts){const main=root.querySelector('main')||root;const error=document.createElement('p');error.className='service-banner';error.textContent=connectionError||'Account services unavailable. Please try again.';main.prepend(error);}else{signedInUser=null;location.hash='/login';notice('Please sign in to continue.');}return;}
+  if(token!==routeId)return;
+  if(tradingPage){tradingPage(root,options);return;}
   let profile;try{profile=await accounts.profile(user);}catch{}
   if(token!==routeId)return;
   if(view==='dashboard'||view==='markets'){
@@ -204,7 +210,7 @@ async function route() {
   if (page === 'bots-preview') { mountBots(root, {preview:true}); return; }
   if (page === 'deposit-preview') { mountDeposit(root, { firstName: 'there', preview: true }); return; }
   if (page === 'dashboard-preview') { mountDashboard(root, { firstName: 'there', preview: true }); window.scrollTo(0, 0); return; }
-  if (['admin','dashboard','deposit','withdraw','bots','trade','kyc'].includes(page) || (page === 'markets' && signedInUser)) return renderExchange(token, page);
+  if (['admin','dashboard','deposit','withdraw','bots','real-bots','trade','kyc'].includes(page) || (page === 'markets' && signedInUser)) return renderExchange(token, page);
   if (page === 'login' || page === 'signup') return renderAuth(page);
   if (page === 'forgot-password' || page === 'verify-email') return renderEmailFlow(page);
   if (page === 'account') {

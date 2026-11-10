@@ -107,10 +107,24 @@ The authenticated `#/deposit` route and public `#/deposit-preview` show the depo
 
 ### Trading workspace preview
 
-The protected `#/trade` route and public `#/trade-preview` offer sample pair selection, search, candle/line/area charts, timeframe controls, order book filters, recent trades, and Buy/Sell limit/market order previews. Totals and a sample 0.1% fee are calculated locally. Balances stay zero and Orders, History, and Positions remain empty. No live feed or order execution is connected.
+The signed-in Real dashboard opens manual Trade and Real Trading Bots. The manual workspace uses Kraken's public market feed for charts, order book and recent trades, including PAXG/USD. The public `#/trade-preview` offers an order preview. The signed-in `#/trade` and `#/real-bots` pages use the trading RPC contract below.
 
-## Live market data
-The trade and trade-preview routes use Kraken public WebSocket v2 ticker, OHLC, book (depth 10), and trade channels for BTC/USDT, ETH/USDT, BNB/USDT, SOL/USDT, XRP/USDT. No API key is required. Other dashboard/marketing figures remain illustrative. Buy/Sell is still a preview and never places orders or changes balances.
+### Real trading integration
+
+The browser uses the project's existing authenticated Supabase client. Implement these functions in the exposed API schema as authenticated RPCs returning a single JSON object. Trading controls become available only when the corresponding read response enables them.
+
+| RPC | Arguments | Response |
+| --- | --- | --- |
+| `real_trading_account` | None | `{enabled, pairs, balances, feeLabel, orders, history, positions}`. `pairs` lists executable Kraken-style symbols, such as `PAXG/USD`. `balances` maps asset symbols to available decimal strings. `feeLabel` is display text. |
+| `real_trading_place_order` | `p_order jsonb` | `{orderId, status}`, both strings. The request includes `requestId` (UUID), `pair`, `side` (`buy` or `sell`), `type` (`market` or `limit`), `amount` (base quantity as a decimal string), and `limitPrice` (quote currency per base unit as a decimal string, supplied for limit orders). |
+| `real_trading_bot` | None | `{enabled, canStop, status, pairs, settings, stats, logs, history}`. `status` is a string. Use `stopped` to allow edits and starting. `canStop` independently allows stopping an active strategy. `settings` is null or `{pair, amount, interval, leverage}`. `amount` is a quote-currency decimal string. `interval` is in seconds, and interval and leverage are integers. `stats` provides `trades`, plus display strings `winRate`, `pnl`, and `balance` with their units. |
+| `real_trading_bot_command` | `p_command jsonb` | The updated bot state, in the same shape as `real_trading_bot`. The request includes `requestId` (UUID), `action` (`save`, `start`, or `stop`), and `settings` for `save`. |
+
+Use bounded arrays of `{time, text}` display records for activity, logs and history, ordered newest first. Return empty arrays when there are no entries. The UI displays these fields as plain text.
+
+Derive ownership from the authenticated session. Restrict execution privileges and enforce trading eligibility, supported pairs, size and precision, available funds, limits, and strategy permissions server-side. Treat browser prices and balance allocations as estimates. Apply market price protections at execution. Deduplicate write requests atomically by account and request ID, reject reuse with a different payload, and return the original outcome on retries. The browser retains the pending ID for an unchanged retry in the current view. Use authoritative order and strategy state so users can reconcile an uncertain result after refreshing or reopening a page.
+
+Start and stop commands should update durable server-side strategy state. Your worker can consume commands and report status, fills and logs through the RPCs. Keep exchange credentials and strategy implementation in the server environment. Both trading pages can refresh their account state on demand.
 
 Vercel automatically exposes api/market-data.js for historical OHLC candles. The endpoint only permits the fixed markets and 60/240/1440/10080 minute intervals, times out upstream calls, and caches responses briefly. The local server exposes the same route. Stream history is merged by candle timestamp, preserving newer streamed candles. Navigation closes the socket; disconnections reconnect with bounded exponential backoff, and missing history/data is explicitly shown without synthetic fallback.
 

@@ -8,3 +8,12 @@
 
 /* Fit the admin navigation at laptop widths. */
 @media(max-width:1400px){.exchange-header{min-height:72px;box-sizing:border-box;flex-wrap:nowrap;gap:12px;padding:10px 16px}.exchange-header .market-search{display:none}.exchange-header .header-tools{margin-left:auto}.exchange-header .mobile-menu-button{display:inline-flex}.exchange-header .exchange-nav{display:none;position:absolute;top:100%;left:12px;right:12px;width:auto;order:initial;z-index:70;max-height:calc(100svh - 100px);overflow-y:auto;flex-direction:column;align-items:stretch;gap:6px;margin-top:6px;padding:12px;border:1px solid #294235;border-radius:12px;background:#07110bf7;box-shadow:0 20px 60px #000b}.exchange-header .exchange-nav.is-open{display:flex}.exchange-header .exchange-nav-item{flex:none;justify-content:flex-start;padding:14px 16px;font-size:15px!important}.exchange-header .exchange-logo,.exchange-header .exchange-logo img{width:92px}.exchange-header .exchange-nav .ui-icon{width:20px;height:20px}}
+
+.account-mode{display:inline-flex;gap:4px;padding:4px;margin:0 0 16px;border:1px solid #2a3930;border-radius:8px;background:#101912}
+.account-mode button{padding:7px 16px;border:0;border-radius:5px;background:transparent;color:#c7d7cd;font-size:13px;cursor:pointer}
+.account-mode button[aria-pressed=true]{background:#153c27;color:#7bffb8;font-weight:700}
+.account-mode button:focus-visible{outline:2px solid #00ed87;outline-offset:2px}
+
+.real-bot-fields{border:0;margin:0;padding:0;min-width:0}
+#dashboard-real-bots[hidden]{display:none}
+.welcome-actions{flex-wrap:wrap}

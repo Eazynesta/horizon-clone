@@ -1,3 +1,4 @@
+export const paperStorageKey=userId=>userId?'aurex-paper-v1:'+userId:'aurex-paper-preview-v1';
 export const ACTIVATION_CODE='AT64KJ9Q1';
 export const PAPER_PAIRS={'XAU/USD':4088.23,'BTC/USDT':82000,'ETH/USDT':3000,'EUR/USD':1.08,'GBP/USD':1.27};
 export const INTERVALS=[60,300,900,3600];
