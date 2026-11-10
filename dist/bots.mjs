@@ -5,17 +5,17 @@ import {ACTIVATION_CODE,paperStorageKey,validateBotSettings,freshPaperBot,restor
 
 const dollars=c=>new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(c/100);
 
-// Mount using the "real" template
 export const botsHTML=()=>botWorkspaceHTML({real:true});
 
 export function mountBots(root,options={}){
   mountDashboard(root,{...options,view:'bots',mainHTML:botsHTML()});
-  
   const page=root.querySelector('.paper-bots'),q=s=>page.querySelector(s);
+  
   let state=freshPaperBot(),storageKey=options.preview?paperStorageKey():null,ready=!!options.preview,timer=null,startAt=0,due=0,phase=-1;
   
-  // Bypass the activation code and unlock the workspace immediately
-  state.unlocked = true;
+  // Hide the reset button entirely since this is "Real" trading
+  const resetBtn = q('#paper-reset');
+  if (resetBtn) resetBtn.style.display = 'none';
 
   function save(){
     if(!storageKey)return;
@@ -32,7 +32,7 @@ export function mountBots(root,options={}){
   }
 
   function row(t){
-    return '<article class="paper-trade-row"><div><strong>'+t.side+' '+esc(t.pair)+'</strong><span class="'+(t.win?'positive':'negative')+'">'+(t.profitCents>=0?'+':'')+dollars(t.profitCents)+'</span></div><p>Synthetic entry: '+t.entry.toFixed(t.entry<10?5:2)+' · Exit: '+t.exit.toFixed(t.exit<10?5:2)+' <span class="paper-result '+(t.win?'positive':'negative')+'">'+(t.win?'WIN':'LOSS')+'</span></p><small>'+new Date(t.time).toLocaleString()+' · Amount '+dollars(t.amountCents)+' · '+t.leverage+'×</small></article>';
+    return '<article class="paper-trade-row"><div><strong>'+t.side+' '+esc(t.pair)+'</strong><span class="'+(t.win?'positive':'negative')+'">'+(t.profitCents>=0?'+':'')+dollars(t.profitCents)+'</span></div><p>Entry: '+t.entry.toFixed(t.entry<10?5:2)+' · Exit: '+t.exit.toFixed(t.exit<10?5:2)+' <span class="paper-result '+(t.win?'positive':'negative')+'">'+(t.win?'WIN':'LOSS')+'</span></p><small>'+new Date(t.time).toLocaleString()+' · Amount '+dollars(t.amountCents)+' · '+t.leverage+'×</small></article>';
   }
 
   function render(){
@@ -48,7 +48,6 @@ export function mountBots(root,options={}){
     q('#paper-balance').textContent=dollars(state.balanceCents);
     q('#paper-start').disabled=state.running||!ready;
     q('#paper-stop').disabled=!state.running;
-    q('#paper-reset').disabled=state.running;
     q('#paper-settings').querySelectorAll('input,select,button').forEach(el=>el.disabled=state.running);
     q('#paper-history').innerHTML=state.history.length?state.history.map(row).join(''):'<p class="transfer-caption">No trades yet.</p>';
     q('#paper-last-trade').innerHTML=state.history[0]?row(state.history[0]):'';
@@ -112,6 +111,25 @@ export function mountBots(root,options={}){
     }
   }
 
+  q('#bot-passkey-form').onsubmit=e=>{
+    e.preventDefault();
+    const value=q('#bot-passkey').value.trim().toUpperCase();
+    q('#bot-passkey').value='';
+    if(!ready){
+      q('#bot-passkey-feedback').textContent='Sign in before activating your bot.';
+      return;
+    }
+    if(value!==ACTIVATION_CODE){
+      q('#bot-passkey-feedback').textContent='Incorrect activation code. Please try again.';
+      return;
+    }
+    state.unlocked=true;
+    log('Pro Trading Bot v2.1 activated.');
+    save();
+    fill();
+    render();
+  };
+
   q('#paper-settings').onsubmit=e=>{
     e.preventDefault();
     try{
@@ -145,7 +163,7 @@ export function mountBots(root,options={}){
       due=startAt+state.settings.interval*1000;
       phase=-1;
       log('Bot initialized. '+state.settings.pair+' · '+dollars(state.settings.amountCents)+' per trade.');
-      q('#paper-feedback').textContent='Running trades.';
+      q('#paper-feedback').textContent='Running live trades.';
       save();
       render();
       tick();
@@ -156,21 +174,9 @@ export function mountBots(root,options={}){
   };
 
   q('#paper-stop').onclick=()=>stop();
-  
-  q('#paper-reset').onclick=()=>{
-    if(state.running)return;
-    const settings=state.settings;
-    state=freshPaperBot();
-    state.unlocked=true;
-    state.settings=settings;
-    log('Account reset to $10,000.');
-    save();
-    render();
-  };
 
   if(options.preview){
     try{state=restorePaperBot(localStorage.getItem(storageKey));}catch{}
-    state.unlocked = true; // Ensure it stays unlocked
     fill();
     render();
   }else{
@@ -180,14 +186,10 @@ export function mountBots(root,options={}){
       if(!page.isConnected)return;
       storageKey=paperStorageKey(user.id);
       try{state=restorePaperBot(localStorage.getItem(storageKey));}catch{}
-      state.unlocked = true; // Ensure it stays unlocked
       ready=true;
       fill();
       render();
-    }).catch(e=>{
-      // If not signed in, show error in the workspace feedback instead of passkey
-      q('#paper-feedback').textContent=e.message;
-    });
+    }).catch(e=>q('#bot-passkey-feedback').textContent=e.message);
   }
 
   const onPageHide=()=>stop();
