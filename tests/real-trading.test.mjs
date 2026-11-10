@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createTradingService,positiveDecimal} from '../dist/trading-service.mjs';
 import {tradeHTML} from '../dist/trade.mjs';
+import {botsHTML} from '../dist/bots.mjs';
 import {realBotsHTML} from '../dist/real-bots.mjs';
 
 test('real trading uses authenticated Supabase RPCs with a fresh session check for writes',async()=>{
@@ -37,9 +38,20 @@ test('real trading controls start disabled and public Trade remains a preview',(
   assert.match(tradeHTML({real:true}),/id="trade-submit"[^>]+disabled/);
   assert.match(tradeHTML(),/Order preview/);
   assert.doesNotMatch(tradeHTML(),/Refresh account/);
-  assert.match(realBotsHTML(),/id="real-bot-start"[^>]+disabled/);
-  assert.match(realBotsHTML(),/id="real-bot-stop"[^>]+disabled/);
+  assert.match(realBotsHTML(),/id="paper-start"[^>]+disabled/);
+  assert.match(realBotsHTML(),/id="paper-stop"[^>]+disabled/);
   assert.doesNotMatch(realBotsHTML(),/SIMULATED|\$10,000/);
   for(const amount of ['0','0.0','-1','1e8','Infinity',''])assert.equal(positiveDecimal(amount),false);
   assert.equal(positiveDecimal('0.000001'),true);
+});
+
+test('real and demo bots share the workspace sections while only demo has local activation and reset',()=>{
+  const demo=botsHTML(),real=realBotsHTML();
+  for(const section of ['bot-activation','paper-settings','paper-status','paper-progress','paper-log','paper-history']){
+    assert.ok(demo.includes('id="'+section+'"'));
+    assert.ok(real.includes('id="'+section+'"'));
+  }
+  assert.match(demo,/id="bot-passkey-form"/);
+  assert.match(demo,/id="paper-reset"/);
+  assert.doesNotMatch(real,/id="bot-passkey-form"|id="paper-reset"/);
 });

@@ -14,6 +14,6 @@
 .account-mode button[aria-pressed=true]{background:#153c27;color:#7bffb8;font-weight:700}
 .account-mode button:focus-visible{outline:2px solid #00ed87;outline-offset:2px}
 
-.real-bot-fields{border:0;margin:0;padding:0;min-width:0}
+.bot-settings-fields{border:0;margin:0;padding:0;min-width:0}
 #dashboard-real-bots[hidden]{display:none}
 .welcome-actions{flex-wrap:wrap}
