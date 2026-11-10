@@ -16,7 +16,7 @@ In Admin, open the review queue, independently verify the chain, correct token c
 
 Customers enter an external receiving address, the correct network, optional memo/tag, and amount. Only supported active routes accept requests. The database atomically moves the amount from available to reserved; overspending is blocked. Users can cancel a pending review request to restore their funds.
 
-Use Start Processing before sending any funds. This claims the request for the current administrator and blocks customer cancellation. Independently verify the destination and network, then use your own wallet to send the requested amount. This application never broadcasts a transaction or holds wallet private keys.
+Use Start Processing before sending any funds. This claims the request for the current administrator and blocks customer cancellation. Independently verify the destination and network, then send the payout request to the licensed third-party merchant through your external process. This application never broadcasts a transaction or holds wallet private keys.
 
 After verifying the external payment, select Record Payment, enter its full transaction hash and actual network fee in the chain's native gas coin (BTC, ETH, BNB or TRX), and record evidence. This consumes the reserved balance once and shows the payout hash to the customer. The sending-wallet fee is recorded separately and is not silently deducted from customer site balances. One payout transaction hash is permitted per request; batch payouts are not supported.
 
