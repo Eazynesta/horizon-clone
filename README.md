@@ -30,13 +30,13 @@ Selected project: `https://utfdajwoseumovoqxtev.supabase.co`. Its publishable ke
 1. Run `supabase/schema.sql` in its SQL Editor. The SQL includes RLS and verification queries.
 2. In Authentication, enable Email/password authentication and email confirmation.
 3. Set a password minimum of at least 12 characters.
-4. Set the Site URL to the actual production URL, for example `https://aurexmarkets.vercel.app`.
+4. In Authentication → URL Configuration, set **Site URL** to `https://www.aurexmarketexchange.com`.
 5. Add these exact Redirect URLs:
-   - `https://aurexmarkets.vercel.app/auth/callback`
-   - `https://aurexmarkets.vercel.app/auth/callback?flow=recovery`
+   - `https://www.aurexmarketexchange.com/auth/callback`
+   - `https://www.aurexmarketexchange.com/auth/callback?flow=recovery`
    - `http://127.0.0.1:4174/auth/callback`
    - `http://127.0.0.1:4174/auth/callback?flow=recovery`
-   Replace the production hostname if yours differs.
+   Remove the legacy Vercel hostname from the redirect allowlist.
 6. Use the project's publishable key (`sb_publishable_...`) from its API keys settings.
 7. Configure production SMTP before opening signup to general users; Supabase's default mail service has delivery/rate restrictions.
 

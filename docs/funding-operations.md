@@ -1,6 +1,6 @@
 # Manual finance operations
 
-Production finance admin: https://aurexmarkets.vercel.app/#/admin
+Production finance admin: https://www.aurexmarketexchange.com/#/admin
 
 Sign in with the existing verified owner account nestaamwangi@gmail.com. Admin membership is held in a protected database table, never in editable profile metadata. No new owner password is created or needed. The header and account settings show Admin for an authorized account.
 

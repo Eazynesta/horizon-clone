@@ -30,6 +30,8 @@ export function profileValues(values) {
   return { first_name, last_name, phone };
 }
 export function createAccountService(client, origin) {
+  // Use the page origin so PKCE can retrieve the verifier on the callback.
+  const callbackUrl = new URL('/auth/callback', origin).href;
   let verifiedUser=null, verifiedAt=0, userRequest, generation=0; const profiles=new Map();
   const clearUserCache=()=>{generation++;verifiedUser=null;verifiedAt=0;profiles.clear();};
   async function checked(result) {
@@ -50,7 +52,7 @@ export function createAccountService(client, origin) {
       const data = profileValues(values);
       return checked(client.auth.signUp({
         email: values.email.trim(), password: values.password,
-        options: { data, emailRedirectTo: `${origin}/auth/callback` }
+        options: { data, emailRedirectTo: callbackUrl }
       }));
     },
     async signIn(email, password) {
@@ -59,17 +61,17 @@ export function createAccountService(client, origin) {
     },
     async signOut() { await checked(client.auth.signOut({ scope: 'local' })); clearUserCache(); },
     async resetPassword(email) {
-      await checked(client.auth.resetPasswordForEmail(email.trim(), { redirectTo: `${origin}/auth/callback?flow=recovery` }));
+      await checked(client.auth.resetPasswordForEmail(email.trim(), { redirectTo: `${callbackUrl}?flow=recovery` }));
     },
     async resendConfirmation(email) {
-      await checked(client.auth.resend({ type: 'signup', email: email.trim(), options: { emailRedirectTo: `${origin}/auth/callback` } }));
+      await checked(client.auth.resend({ type: 'signup', email: email.trim(), options: { emailRedirectTo: callbackUrl } }));
     },
     async changePassword(password, confirmation) {
       validatePassword(password, confirmation);
       await checked(client.auth.updateUser({ password }));
     },
     async changeEmail(email) {
-      await checked(client.auth.updateUser({ email: email.trim() }, { emailRedirectTo: `${origin}/auth/callback` }));
+      await checked(client.auth.updateUser({ email: email.trim() }, { emailRedirectTo: callbackUrl }));
     },
     async profile(user) {
       const cached=profiles.get(user.id);if(cached&&Date.now()-cached.at<60000)return cached.value;

@@ -11,11 +11,11 @@ test('signup rejects mismatches before contacting Supabase', async () => {
 });
 test('signup stores cosmetic profile metadata and a fixed same-origin callback', async () => {
   let payload;
-  const service = createAccountService({ auth: { signUp: async p => { payload = p; return { data: { session: null }, error: null }; } } }, 'https://aurexmarkets.vercel.app');
+  const service = createAccountService({ auth: { signUp: async p => { payload = p; return { data: { session: null }, error: null }; } } }, 'https://www.aurexmarketexchange.com');
   const result = await service.signUp({ email: ' user@example.com ', password: 'a-long-password', confirmPassword: 'a-long-password', firstName: ' Jane ', lastName: ' Doe ', phone: '+254 712 345 678', role: 'admin' });
   assert.equal(result.session, null);
   assert.equal(payload.email, 'user@example.com');
-  assert.equal(payload.options.emailRedirectTo, 'https://aurexmarkets.vercel.app/auth/callback');
+  assert.equal(payload.options.emailRedirectTo, 'https://www.aurexmarketexchange.com/auth/callback');
   assert.deepEqual(payload.options.data, { first_name: 'Jane', last_name: 'Doe', phone: '+254712345678' });
 });
 test('phone validation accepts international numbers and rejects invalid values', () => {
@@ -32,9 +32,9 @@ test('recovery uses a dedicated callback and validates passwords before update',
   const service = createAccountService({ auth: {
     resetPasswordForEmail: async (...args) => { payload = args; return { data: {}, error: null }; },
     updateUser: async () => { updates++; return { data: {}, error: null }; }
-  } }, 'https://example.com');
+  } }, 'https://www.aurexmarketexchange.com');
   await service.resetPassword(' user@example.com ');
-  assert.deepEqual(payload, ['user@example.com', { redirectTo: 'https://example.com/auth/callback?flow=recovery' }]);
+  assert.deepEqual(payload, ['user@example.com', { redirectTo: 'https://www.aurexmarketexchange.com/auth/callback?flow=recovery' }]);
   await assert.rejects(service.changePassword('short', 'short'));
   assert.equal(updates, 0);
 });
