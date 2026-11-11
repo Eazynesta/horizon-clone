@@ -1,3 +1,5 @@
+import {KYC_BUCKET} from './kyc-service.mjs';
+
 export function createAdminService(accounts){const client=accounts.client;
  async function checked(q){const {data,error}=await q;if(error)throw Error(error.message);return data;}
  async function user(){const u=await accounts.user({fresh:true});if(!u)throw Error('Sign in to access finance administration.');return u;}
@@ -10,4 +12,23 @@ export function createAdminService(accounts){const client=accounts.client;
   await user();
   return checked(client.rpc('finance_grant_admin', {account_email:email.trim()}));
  }
- return {isAdmin,directory,load,execute,accountsPage,grantAdmin};}
+ async function pendingKyc(offset) {
+  const admin = await user();
+  return checked(client.from('kyc_submissions')
+    .select('id,user_id,full_name,date_of_birth,country,document_type,document_front_path,document_back_path,selfie_path,consent_at,updated_at')
+    .eq('status','pending').neq('user_id',admin.id)
+    .order('consent_at').order('id').range(offset,offset+25));
+ }
+ async function kycPhoto(path) {
+  if (!path) throw Error('Required identity photo is missing.');
+  const photo = await checked(client.storage.from(KYC_BUCKET).createSignedUrl(path,60));
+  return photo.signedUrl;
+ }
+ async function approveKyc(row) {
+  await user();
+  return checked(client.rpc('approve_kyc', {
+   submission_id:row.id,
+   submission_version:row.updated_at
+  }));
+ }
+ return {isAdmin,directory,load,execute,accountsPage,grantAdmin,pendingKyc,kycPhoto,approveKyc};}
