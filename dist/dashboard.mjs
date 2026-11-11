@@ -40,8 +40,7 @@ export function chart(asset) {
  return '<svg class="asset-sparkline '+(asset.change>=0?'positive':'negative')+'" viewBox="0 0 500 84" preserveAspectRatio="none" role="img" aria-label="'+asset.symbol+' hourly closing prices, past 24 hours"><polyline points="'+points+'" fill="none" stroke="currentColor" stroke-width="3.5"/></svg>';
 }
 const volumeLabel=a=>Number.isFinite(a.volume)?new Intl.NumberFormat('en-US',{notation:'compact',maximumFractionDigits:2}).format(a.volume)+' '+a.quote:'—';
-function assetsForView(view, assets = overviewAssets()) {
-  if (view !== 'markets') return assets;
+function displayMarkets(assets = overviewAssets()) {
   const gold = assets.find(asset => asset.symbol === 'PAXG');
   const bitcoin = assets.find(asset => asset.symbol === 'BTC');
   return [
@@ -58,7 +57,7 @@ function ranking(title, assets, negative=false) {
   return `<section class="ranking-panel"><h2>${icon(negative?'down':'trade',negative?'negative':'positive')}${title} <span>(24h)</span></h2><ol>${assets.map((a,i)=>`<li><button data-asset="${a.symbol}"><span class="rank">${i+1}</span>${coin(a)}<span class="rank-identity"><strong>${a.symbol}</strong><small>${money(a.price)}</small></span><strong class="${negative?'negative':'positive'}">${percentage(a.change)}</strong></button></li>`).join('')}</ol></section>`;
 }
 export function dashboardHTML({firstName='there',preview=false,view='dashboard'}={}) {
-  const top=gainers()[0],bottom=losers()[0];
+  const top=gainers(displayMarkets())[0],bottom=losers(displayMarkets())[0];
   const nav=[['dashboard','Dashboard'],['trade','Trade'],['markets','Markets'],['deposit','Deposit'],['withdraw','Withdraw'],['bots','Bots'],['kyc','Verification']];
   return `<div class="exchange-dashboard">
     <header class="exchange-header"><a class="exchange-logo" href="#/" aria-label="Aurexmarkets Exchange home"><img src="/assets/aurex-logo.png" alt="Aurexmarkets Exchange"></a>
@@ -71,9 +70,9 @@ export function dashboardHTML({firstName='there',preview=false,view='dashboard'}
       <section class="dashboard-welcome"><div class="welcome-heading"><div><h1>${view==='markets'?'Explore the markets':`Welcome back, ${escapeHTML(firstName)}`}</h1><p>Here's the latest market overview.</p></div><div class="welcome-actions"><button class="secondary-button" data-nav="markets">${icon('markets')} Markets</button>${view==='dashboard'&&!preview?'<button class="secondary-button" id="dashboard-real-bots" data-nav="real-bots">Real Trading Bots</button>':''}<button class="primary-button" id="dashboard-trade" data-nav="trade">${icon('bolt')} Trade Now</button></div></div>
       ${view==='dashboard'?'<div class="account-mode" role="group" aria-label="Account mode"><button type="button" data-mode="real" aria-pressed="true">Real</button><button type="button" data-mode="demo" aria-pressed="false">Demo</button></div>':''}
       <div class="summary-grid"><article class="summary-card"><p>${icon('wallet')} <span id="wallet-summary-label">Funded Assets</span></p><strong class="summary-number" id="wallet-summary">—</strong></article><article class="summary-card"><p>${icon('volume')} 24h Volume · tracked USDT pairs</p><strong class="summary-number" id="overview-volume">—</strong></article><article class="summary-card"><p>${icon('trade','positive')} Top Gainer</p><strong class="summary-asset">${top?.symbol||'—'} <span class="positive">${percentage(top?.change)}</span></strong></article><article class="summary-card"><p>${icon('down','negative')} Top Loser</p><strong class="summary-asset">${bottom?.symbol||'—'} <span class="negative">${percentage(bottom?.change)}</span></strong></article></div></section>
-      <div class="dashboard-ticker" aria-label="Live market ticker">${assetsForView('markets').map(a=>`<button data-asset="${a.symbol}">${coin(a)}<strong>${a.sourceSymbol ? a.symbol : a.pair || a.symbol}</strong><span data-ticker-price>${money(a.price)}</span><span data-ticker-change class="${a.change>=0?'positive':'negative'}">${percentage(a.change)}</span></button>`).join('')}</div>
-      <div class="dashboard-content"><div class="dashboard-disclosure"><span class="sample-dot"></span><span id="overview-status" role="status">Connecting to Kraken…</span> · Rankings cover listed markets. Real trading availability depends on your account.</div><section aria-labelledby="assets-title"><div class="section-heading"><h2 id="assets-title">${view==='markets'?'All Markets':'Featured Markets'}</h2><button class="view-all" id="view-all">View All ${icon('arrow')}</button></div><div class="asset-grid" id="asset-grid">${assetsForView(view).filter(a=>view==='markets'||a.trending).map(assetCard).join('')}</div><p id="search-empty" class="empty-market" hidden>No markets found. Try a name or symbol such as BTC.</p></section>
-      <div class="ranking-grid">${ranking('Top Gainers',gainers())}${ranking('Top Losers',losers(),true)}</div>
+      <div class="dashboard-ticker" aria-label="Live market ticker">${displayMarkets().map(a=>`<button data-asset="${a.symbol}">${coin(a)}<strong>${a.sourceSymbol ? a.symbol : a.pair || a.symbol}</strong><span data-ticker-price>${money(a.price)}</span><span data-ticker-change class="${a.change>=0?'positive':'negative'}">${percentage(a.change)}</span></button>`).join('')}</div>
+      <div class="dashboard-content"><div class="dashboard-disclosure"><span class="sample-dot"></span><span id="overview-status" role="status">Connecting to Kraken…</span> · Rankings cover listed markets. Real trading availability depends on your account.</div><section aria-labelledby="assets-title"><div class="section-heading"><h2 id="assets-title">${view==='markets'?'All Markets':'Featured Markets'}</h2><button class="view-all" id="view-all">View All ${icon('arrow')}</button></div><div class="asset-grid" id="asset-grid">${displayMarkets().filter(a=>view==='markets'||a.trending).map(assetCard).join('')}</div><p id="search-empty" class="empty-market" hidden>No markets found. Try a name or symbol such as BTC.</p></section>
+      <div class="ranking-grid">${ranking('Top Gainers',gainers(displayMarkets()))}${ranking('Top Losers',losers(displayMarkets()),true)}</div>
       <footer class="dashboard-footer"><a href="#/">Aurexmarkets Exchange</a><span>Source: Kraken · USD and USDT pairs are labelled separately.</span><a href="${preview?'#/login':'#/account'}">Account settings ${icon('arrow')}</a></footer></div>
     </main><dialog class="market-dialog" id="market-dialog" aria-labelledby="market-dialog-title"><button class="dialog-close icon-button" aria-label="Close dialog">${icon('close')}</button><div id="dialog-content"></div></dialog>
   </div>`;
@@ -137,11 +136,11 @@ export function mountDashboard(root, options) {
   function findMarket(symbol) {
     const assets = overviewAssets();
     return assets.find(a => a.symbol === symbol)
-      || assetsForView('markets', assets).find(a => a.symbol === symbol);
+      || displayMarkets(assets).find(a => a.symbol === symbol);
   }
   function showAsset(symbol) {
     const a=findMarket(symbol); if(!a)return; selectedSymbol=symbol; requestHistory(a.sourceSymbol || symbol);
-    showDialog(a.pair||a.symbol+' · Market unavailable',dialogContent(a));
+    showDialog(a.sourceSymbol ? a.symbol : a.pair||a.symbol+' · Market unavailable',dialogContent(a));
   }
   function dialogContent(a){return `<div class="asset-modal-heading">${coin(a)}<div><p>${a.name}</p><strong>${money(a.price)}</strong></div><span class="change-badge ${a.change>=0?'positive':'negative'}">${percentage(a.change)}</span></div>${chart(a)}<dl class="market-facts"><dt>24h change</dt><dd class="${a.change>=0?'positive':'negative'}">${percentage(a.change)}</dd><dt>24h volume</dt><dd>${volumeLabel(a)}</dd><dt>Quote currency</dt><dd>${a.quote||'Unavailable'}</dd></dl><p class="dialog-explanation">Source: Kraken · ${overviewState().status}. Trade availability depends on your account. Deposits use configured networks and manual review.</p>`;}
   root.onclick = async e=>{
@@ -177,7 +176,7 @@ export function mountDashboard(root, options) {
   if(options.mainHTML) {
     root.querySelector('#market-search').addEventListener('keydown', e=>{
       if(e.key!=='Enter')return; e.preventDefault();
-      const assets=filterAssets(e.target.value, assetsForView(options.view));
+      const assets=filterAssets(e.target.value, displayMarkets());
       showDialog('Markets',assets.length?'<div class="market-shortcuts">'+assets.map(a=>`<button class="secondary-button" data-asset="${a.symbol}">${a.symbol}/${a.quote||'USDT'}</button>`).join('')+'</div>':'<p class="dialog-explanation">No markets found. Try another name or symbol.</p>');
     });
     return;
@@ -185,7 +184,7 @@ export function mountDashboard(root, options) {
   let all=options.view==='markets';
   function filter() {
     const query=root.querySelector('#market-search').value;
-    const assets=assetsForView(options.view).filter(a=>(a.symbol+' '+a.name).toLowerCase().includes(query.trim().toLowerCase())).filter(a=>query||all||a.trending);
+    const assets=displayMarkets().filter(a=>(a.symbol+' '+a.name).toLowerCase().includes(query.trim().toLowerCase())).filter(a=>query||all||a.trending);
     root.querySelector('#asset-grid').innerHTML=assets.map(assetCard).join('');
     root.querySelector('#search-empty').hidden=assets.length>0;
     root.querySelector('#assets-title').textContent=query?'Search Results':all?'All Markets':'Featured Markets';
@@ -217,20 +216,19 @@ export function mountDashboard(root, options) {
   }, 3000);
 
   function refreshOverview(){
-    const assets=overviewAssets(),top=gainers(assets)[0],bottom=losers(assets)[0],cards=root.querySelectorAll('.summary-card');
+    const assets=displayMarkets(),top=gainers(assets)[0],bottom=losers(assets)[0],cards=root.querySelectorAll('.summary-card');
     root.querySelector('#overview-status').textContent='Kraken · '+getStatus();
     const quoted=assets.filter(a=>a.quote==='USDT'&&Number.isFinite(a.volume));root.querySelector('#overview-volume').textContent=quoted.length?new Intl.NumberFormat('en-US',{notation:'compact',maximumFractionDigits:2}).format(quoted.reduce((sum,a)=>sum+a.volume,0))+' USDT':'—';
     cards[2].querySelector('strong').innerHTML=(top?.symbol||'—')+' <span class="positive">'+percentage(top?.change)+'</span>';cards[3].querySelector('strong').innerHTML=(bottom?.symbol||'—')+' <span class="negative">'+percentage(bottom?.change)+'</span>';
-    const tickerAssets=assetsForView('markets',assets);
     for (const button of ticker.children) {
-      const asset = tickerAssets.find(a => a.symbol === button.dataset.asset);
+      const asset = assets.find(a => a.symbol === button.dataset.asset);
       button.querySelector('strong').textContent = asset.sourceSymbol ? asset.symbol : asset.pair || asset.symbol;
       button.querySelector('[data-ticker-price]').textContent = money(asset.price);
       const change = button.querySelector('[data-ticker-change]');
       change.textContent = percentage(asset.change);
       change.className = asset.change >= 0 ? 'positive' : 'negative';
     }
-    const query=root.querySelector('#market-search').value;const visible=assetsForView(options.view,assets).filter(a=>(a.symbol+' '+a.name).toLowerCase().includes(query.trim().toLowerCase())).filter(a=>query||all||a.trending);
+    const query=root.querySelector('#market-search').value;const visible=assets.filter(a=>(a.symbol+' '+a.name).toLowerCase().includes(query.trim().toLowerCase())).filter(a=>query||all||a.trending);
     const grid=root.querySelector('#asset-grid');if([...grid.children].map(b=>b.dataset.asset).join()!==visible.map(a=>a.symbol).join())grid.innerHTML=visible.map(assetCard).join('');else for(const b of grid.children){const a=visible.find(a=>a.symbol===b.dataset.asset),holder=document.createElement('div');holder.innerHTML=assetCard(a);b.innerHTML=holder.firstElementChild.innerHTML;}
     for(const a of visible)requestHistory(a.sourceSymbol || a.symbol);
     const rankings=root.querySelector('.ranking-grid'),holder=document.createElement('div');holder.innerHTML=ranking('Top Gainers',gainers(assets))+ranking('Top Losers',losers(assets),true);const oldButtons=[...rankings.querySelectorAll('button')],newButtons=[...holder.querySelectorAll('button')];if(oldButtons.map(b=>b.dataset.asset).join()===newButtons.map(b=>b.dataset.asset).join())oldButtons.forEach((b,i)=>{b.innerHTML=newButtons[i].innerHTML;});else rankings.innerHTML=holder.innerHTML;
