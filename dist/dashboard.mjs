@@ -1,4 +1,5 @@
-import {freshPaperBot,restorePaperBot,paperStorageKey} from './paper-bot.mjs';
+import {demoBotStorageKey} from './demo-bot-storage.mjs';
+import {freshPaperBot,restorePaperBot} from './paper-bot.mjs';
 import {bindMobileNavigation,menuIcon} from './navigation.mjs';
 import { MARKET_ASSETS, overviewAssets, overviewState, bindOverview, requestHistory } from './market-overview.mjs';
 export const ASSETS=MARKET_ASSETS;
@@ -106,7 +107,7 @@ export function mountDashboard(root, options) {
     }
   }
   function readPaper(userId){
-    try{paper=restorePaperBot(localStorage.getItem(paperStorageKey(userId)));}catch{}
+    try{paper=restorePaperBot(localStorage.getItem(demoBotStorageKey(userId)));}catch{}
     paintAccount();
   }
   if(modeControl){

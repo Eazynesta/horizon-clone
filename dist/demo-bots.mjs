@@ -1,7 +1,8 @@
+import {demoBotStorageKey} from './demo-bot-storage.mjs';
 import {botWorkspaceHTML} from './demo-bot-workspace.mjs';
 import {mountDashboard} from './dashboard.mjs';
 import {escapeHTML as esc} from './transfer-ui.mjs';
-import {ACTIVATION_CODE,paperStorageKey,validateBotSettings,freshPaperBot,restorePaperBot,generatePaperTrade} from './paper-bot.mjs';
+import {ACTIVATION_CODE,validateBotSettings,freshPaperBot,restorePaperBot,generatePaperTrade} from './paper-bot.mjs';
 
 const dollars=c=>new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(c/100);
 
@@ -11,7 +12,7 @@ export function mountBots(root,options={}){
   mountDashboard(root,{...options,view:'bots',mainHTML:botsHTML()});
   const page=root.querySelector('.paper-bots'),q=s=>page.querySelector(s);
   
-  let state=freshPaperBot(),storageKey=options.preview?paperStorageKey():null,ready=!!options.preview,timer=null,startAt=0,due=0,phase=-1;
+  let state=freshPaperBot(),storageKey=options.preview?demoBotStorageKey():null,ready=!!options.preview,timer=null,startAt=0,due=0,phase=-1;
   
   function save(){
     if(!storageKey)return;
@@ -180,7 +181,7 @@ export function mountBots(root,options={}){
       const user=await accounts?.user();
       if(!user)throw Error('Please sign in to activate a bot.');
       if(!page.isConnected)return;
-      storageKey=paperStorageKey(user.id);
+      storageKey=demoBotStorageKey(user.id);
       try{state=restorePaperBot(localStorage.getItem(storageKey));}catch{}
       ready=true;
       fill();
