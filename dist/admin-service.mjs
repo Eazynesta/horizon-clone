@@ -30,8 +30,15 @@ export function createAdminService(accounts){const client=accounts.client;
  }
  async function kycPhoto(path) {
   if (!path) throw Error('Required identity photo is missing.');
-  const photo = await checked(client.storage.from(KYC_BUCKET).createSignedUrl(path,60));
-  return photo.signedUrl;
+  await user();
+  const {data,error}=await client.storage.from(KYC_BUCKET).download(path);
+  if(error){
+   const status=Number(error.statusCode ?? error.status);
+   if(status===401||status===403)throw Error('Access denied');
+   if(status===404)throw Error('File unavailable');
+   throw Error('Download failed');
+  }
+  return data;
  }
  async function approveKyc(row) {
   await user();

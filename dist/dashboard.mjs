@@ -58,10 +58,11 @@ function ranking(title, assets, negative=false) {
 }
 export function dashboardHTML({firstName='there',preview=false,view='dashboard'}={}) {
   const top=gainers(displayMarkets())[0],bottom=losers(displayMarkets())[0];
+  const activeView=view==='real-bots'?'bots':view;
   const nav=[['dashboard','Dashboard'],['trade','Trade'],['markets','Markets'],['deposit','Deposit'],['withdraw','Withdraw'],['bots','Bots'],['kyc','Verification']];
   return `<div class="exchange-dashboard">
     <header class="exchange-header"><a class="exchange-logo" href="#/" aria-label="Aurexmarkets Exchange home"><img src="/assets/aurex-logo.png" alt="Aurexmarkets Exchange"></a>
-      <nav id="exchange-navigation" data-mobile-navigation class="exchange-nav" aria-label="Exchange navigation">${nav.map(([id,label])=>`<button data-nav="${id}" class="exchange-nav-item ${view===id?'active':''}" ${view===id?'aria-current="page"':''}>${icon(id)}<span>${label}</span></button>`).join('')}</nav>
+      <nav id="exchange-navigation" data-mobile-navigation class="exchange-nav" aria-label="Exchange navigation">${nav.map(([id,label])=>`<button data-nav="${id}" class="exchange-nav-item ${activeView===id?'active':''}" ${activeView===id?'aria-current="page"':''}>${icon(id)}<span>${label}</span></button>`).join('')}</nav>
       <label class="market-search">${icon('search')}<input id="market-search" type="search" placeholder="Search markets..." aria-label="Search markets" maxlength="60"></label>
       <div class="header-tools"><button class="get-app" data-action="app" aria-label="Get App">${icon('app')}<span>Get App</span></button><button class="header-balance" data-action="balance">${icon('wallet')}<span>Wallet unavailable</span></button><button class="icon-button security-icon" data-action="security" aria-label="Account security">${icon('shield')}</button><button class="icon-button notification-button" data-action="notifications" aria-label="Notifications">${icon('bell')}</button><a class="icon-button" href="${preview?'#/login':'#/account'}" aria-label="Profile settings">${icon('user')}</a><button class="icon-button logout-button" data-action="${preview?'signin':'logout'}" aria-label="${preview?'Sign in':'Sign out'}">${icon('logout')}</button></div>
       <button class="mobile-menu-button" data-mobile-menu aria-controls="exchange-navigation" aria-expanded="false" aria-label="Open navigation menu">${menuIcon}</button>
@@ -90,7 +91,7 @@ export function mountDashboard(root, options) {
   const summaryLabel=root.querySelector('#wallet-summary-label');
   const tradeButton=root.querySelector('#dashboard-trade');
   const realBotsButton=root.querySelector('#dashboard-real-bots');
-  let mode='real', funded=null, paper=freshPaperBot();
+  let mode=options.accountMode||'real', funded=null, paper=freshPaperBot();
   function paintAccount(){
     const demo=mode==='demo', balance=money(paper.balanceCents/100);
     walletMarker.querySelector('span').textContent=demo?'Demo · '+balance:
@@ -113,15 +114,17 @@ export function mountDashboard(root, options) {
       const button=e.target.closest('[data-mode]');
       if(!button)return;
       mode=button.dataset.mode;
+      options.onAccountModeChange?.(mode);
       paintAccount();
     };
     if(options.preview)readPaper();
   }
   async function refreshWallet(){
     if(options.preview||!options.getAccounts)return;
-    try{const accounts=await options.getAccounts();if(!accounts)return;const u=await accounts.user();if(!u||!walletMarker.isConnected)return;if(modeControl)readPaper(u.id);const {data,error}=await accounts.client.from('wallet_balances').select('asset,available::text,reserved::text').eq('user_id',u.id);if(error)throw error;if(!walletMarker.isConnected)return;walletRows=data.map(b=>({...b,available:b.available.replace(/(\.\d*?)0+$/,'$1').replace(/\.$/,''),reserved:b.reserved.replace(/(\.\d*?)0+$/,'$1').replace(/\.$/,'')}));funded=data.filter(b=>Number(b.available)>0||Number(b.reserved)>0).length;paintAccount();}catch{walletError='Unable to load balances. Try again when your connection is restored.';}
+    try{const accounts=await options.getAccounts();if(!accounts)return;const u=await accounts.user();if(!u||!walletMarker.isConnected)return;if(modeControl||mode==='demo')readPaper(u.id);const {data,error}=await accounts.client.from('wallet_balances').select('asset,available::text,reserved::text').eq('user_id',u.id);if(error)throw error;if(!walletMarker.isConnected)return;walletRows=data.map(b=>({...b,available:b.available.replace(/(\.\d*?)0+$/,'$1').replace(/\.$/,''),reserved:b.reserved.replace(/(\.\d*?)0+$/,'$1').replace(/\.$/,'')}));funded=data.filter(b=>Number(b.available)>0||Number(b.reserved)>0).length;paintAccount();}catch{walletError='Unable to load balances. Try again when your connection is restored.';}
   }
   function walletHTML(){return walletRows?'<div class="wallet-asset-list">'+(walletRows.length?walletRows.map(b=>'<p><strong>'+escapeHTML(b.asset)+'</strong><span>'+escapeHTML(b.available)+' available · '+escapeHTML(b.reserved)+' held</span></p>').join(''):'<p>No deposits have been credited. Available balance: 0.</p>')+'</div><p class="dialog-explanation">Reserved funds belong to pending withdrawals. A licensed third-party merchant processes approved payouts. Transaction hashes appear in withdrawal history.</p>':'<p class="dialog-explanation">'+walletError+'</p>';}
+  paintAccount();
   window.addEventListener('wallet-updated',refreshWallet);window.addEventListener('focus',refreshWallet);
   const walletObserver=new MutationObserver(()=>{if(!walletMarker.isConnected){window.removeEventListener('wallet-updated',refreshWallet);window.removeEventListener('focus',refreshWallet);walletObserver.disconnect();}});walletObserver.observe(root,{childList:true,subtree:true});refreshWallet();
   function showDialog(title,content) {

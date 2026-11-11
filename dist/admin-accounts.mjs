@@ -37,7 +37,7 @@ export function mountAccountTable(host,service,onSaved=()=>{}){let page=0,rows=[
    if (!kyc) return;
    const photos=q('[data-profile-photos]');
    try {
-    const gallery=await loadKycPhotos(service,kyc);
+    const {gallery}=await loadKycPhotos(service,kyc);
     if (current()) photos.replaceWith(gallery);
    } catch {
     if (current()) photos.textContent='Unable to load all submitted photos.';

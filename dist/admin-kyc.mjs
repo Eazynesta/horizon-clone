@@ -9,24 +9,38 @@ const documentTypes = {passport:'Passport', national_id:'National ID', drivers_l
 
 export async function loadKycPhotos(service, row) {
   const slots = photoSlots.filter(([key]) => key !== 'document_back_path' || row.document_type !== 'passport');
-  const images = await Promise.all(slots.map(async ([key, label]) => {
-    const url = await service.kycPhoto(row[key]);
+  const photos = await Promise.all(slots.map(async ([key, label]) => {
+    if (!row[key]) return {label,problem:'File is missing'};
+    let blob;
+    try {
+      blob = await service.kycPhoto(row[key]);
+    } catch (error) {
+      return {label,problem:error.message};
+    }
+    const url = URL.createObjectURL(blob);
     const image = new Image();
     image.alt = label;
     image.style.maxWidth = '100%';
     image.style.maxHeight = '60vh';
     image.referrerPolicy = 'no-referrer';
-    image.src = url;
-    await image.decode();
-    return image;
+    try {
+      image.src = url;
+      await image.decode();
+      return {label,image};
+    } catch {
+      return {label,problem:'Image could not be decoded'};
+    } finally {
+      URL.revokeObjectURL(url);
+    }
   }));
   const gallery = document.createElement('div');
-  for (const image of images) {
-    const label = document.createElement('p');
-    label.textContent = image.alt;
-    gallery.append(label, image);
+  for (const {label,image,problem} of photos) {
+    const caption = document.createElement('p');
+    caption.textContent = problem ? label + ' — ' + problem : label;
+    gallery.append(caption);
+    if (image) gallery.append(image);
   }
-  return gallery;
+  return {gallery,complete:photos.every(photo=>photo.image)};
 }
 
 export function kycDetailsHTML(row) {
@@ -116,11 +130,15 @@ export function mountAdminKyc(panel, service) {
     dialog.showModal();
     const photos = q('[data-kyc-photos]');
     try {
-      const gallery = await loadKycPhotos(service, row);
+      const {gallery,complete} = await loadKycPhotos(service, row);
       if (!dialog.open || version !== reviewVersion || !panel.isConnected) return;
       photos.replaceWith(gallery);
-      selected = row;
-      approve.disabled = false;
+      if (complete) {
+        selected = row;
+        approve.disabled = false;
+      } else {
+        error.textContent = 'Reopen the review to retry the unavailable photos.';
+      }
     } catch {
       if (dialog.open && version === reviewVersion) {
         photos.textContent = 'Unable to load all required photos. Close this review and try again.';

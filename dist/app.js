@@ -176,15 +176,28 @@ function initHome() {
   if (!matchMedia('(prefers-reduced-motion: reduce)').matches) timer = setInterval(() => slide(active + 1), 6500);
 }
 
+let modeOwner, accountMode='real';
 async function renderExchange(token, view) {
-  const options={firstName:signedInUser?.user_metadata?.first_name||'there',view,
+  await accountsReady;
+  if(token!==routeId)return;
+  const userId=signedInUser?.id;
+  if(modeOwner!==userId){
+    modeOwner=userId;
+    accountMode='real';
+    try{if(userId&&sessionStorage.getItem('aurex-account-mode:'+userId)==='demo')accountMode='demo';}catch{}
+  }
+  const options={firstName:signedInUser?.user_metadata?.first_name||'there',view,accountMode,
+    onAccountModeChange:mode=>{
+      accountMode=mode;
+      try{if(userId)sessionStorage.setItem('aurex-account-mode:'+userId,mode);}catch{}
+    },
     getAccounts:async()=>{await accountsReady;if(!accounts)throw Error(connectionError||'Account services are unavailable.');return accounts;},
     onLogout:async()=>{await accountsReady;if(!accounts)throw Error('Account services unavailable.');await accounts.signOut();signedInUser=null;location.hash='/login';notice('You’re signed out.');}
   };
-  const tradingPage={trade:mountTrade,'real-bots':mountRealBots}[view];
+  const tradingPage={trade:mountTrade,'real-bots':mountRealBots,bots:accountMode==='demo'?mountBots:mountRealBots}[view];
   if(tradingPage){
     root.innerHTML='<p class="service-banner" role="status">Checking your account…</p>';
-  }else ({admin:mountAdmin,deposit:mountDeposit,withdraw:mountWithdrawal,bots:mountBots,kyc:mountKyc}[view]||mountDashboard)(root,options);
+  }else ({admin:mountAdmin,deposit:mountDeposit,withdraw:mountWithdrawal,kyc:mountKyc}[view]||mountDashboard)(root,options);
   let user;
   try{user=await requireUser();}
   catch{if(token!==routeId)return;if(!accounts){const main=root.querySelector('main')||root;const error=document.createElement('p');error.className='service-banner';error.textContent=connectionError||'Account services unavailable. Please try again.';main.prepend(error);}else{signedInUser=null;location.hash='/login';notice('Please sign in to continue.');}return;}

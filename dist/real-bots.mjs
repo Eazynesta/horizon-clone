@@ -1,11 +1,85 @@
-export const paperStorageKey=userId=>userId?'aurex-paper-v1:'+userId:'aurex-paper-preview-v1';
-export const ACTIVATION_CODE='AT64KJ9Q1';
-export const PAPER_PAIRS={'XAU/USD':4088.23,'BTC/USDT':82000,'ETH/USDT':3000,'EUR/USD':1.08,'GBP/USD':1.27};
-export const INTERVALS=[60,300,900,3600];
-export function validateBotSettings(v){const pair=String(v.pair),amount=String(v.amount).trim();if(!Object.hasOwn(PAPER_PAIRS,pair))throw Error('Choose a supported trading pair.');if(!/^\d+(\.\d{1,2})?$/.test(amount))throw Error('Enter a trade amount with up to two decimal places.');const amountCents=Math.round(Number(amount)*100),interval=Number(v.interval),leverage=Number(v.leverage);if(!Number.isSafeInteger(amountCents)||amountCents<100||amountCents>100000000)throw Error('Trade amount must be $1–$1,000,000.');if(!INTERVALS.includes(interval))throw Error('Choose an available trade interval.');if(!Number.isInteger(leverage)||leverage<1||leverage>100)throw Error('Trading leverage must be from 1 to 100.');return {pair,amountCents,interval,leverage};}
-export function freshPaperBot(){return {version:1,unlocked:false,running:false,settings:{pair:'XAU/USD',amountCents:20000,interval:60,leverage:20},balanceCents:1000000,profitCents:0,trades:0,wins:0,deck:[],history:[],logs:[]};}
-const pick=rng=>Math.min(.999999999,Math.max(0,Number(rng())||0));
-export function outcomeDeck(rng=Math.random){const deck=[true,true,true,true,true,true,true,false,false,false];for(let i=deck.length-1;i>0;i--){const j=Math.floor(pick(rng)*(i+1));[deck[i],deck[j]]=[deck[j],deck[i]];}return deck;}
-export function generatePaperTrade(state,now=Date.now(),rng=Math.random){if(!state.unlocked)throw Error('Activate the trading bot first.');const s=state.settings;if(state.balanceCents<s.amountCents)throw Error('Insufficient funds. Reduce the trade amount or reset the trading account.');if(!state.deck.length)state.deck=outcomeDeck(rng);const win=state.deck.shift(),profitCents=win?5000+Math.floor(pick(rng)*1001):-(1+Math.floor(pick(rng)*Math.min(1500,s.amountCents-1))),side=pick(rng)<.5?'BUY':'SELL',last=PAPER_PAIRS[s.pair],entry=last*(1+(pick(rng)-.5)*.0002),quantity=(s.amountCents/100)*s.leverage/entry,exit=entry+(side==='BUY'?1:-1)*(profitCents/100)/quantity;const trade={id:state.trades+1,time:now,pair:s.pair,side,entry,exit,profitCents,win,amountCents:s.amountCents,leverage:s.leverage};state.balanceCents+=profitCents;state.profitCents+=profitCents;state.trades++;if(win)state.wins++;state.history.unshift(trade);state.history.length=Math.min(state.history.length,100);return trade;}
-export function restorePaperBot(raw){const empty=freshPaperBot();try{const s=JSON.parse(raw);if(s?.version!==1||typeof s.unlocked!=='boolean'||!Number.isSafeInteger(s.balanceCents)||s.balanceCents<0||!Number.isSafeInteger(s.profitCents)||s.balanceCents!==1000000+s.profitCents||!Number.isSafeInteger(s.trades)||s.trades<0||!Number.isSafeInteger(s.wins)||s.wins<0||s.wins>s.trades)return empty;const settings=validateBotSettings({pair:s.settings.pair,amount:String(s.settings.amountCents/100),interval:s.settings.interval,leverage:s.settings.leverage});return {...empty,unlocked:s.unlocked,settings,balanceCents:s.balanceCents,profitCents:s.profitCents,trades:s.trades,wins:s.wins,deck:Array.isArray(s.deck)&&s.deck.length<=10&&s.deck.every(x=>typeof x==='boolean')?s.deck:[],history:Array.isArray(s.history)?s.history.filter(t=>Number.isFinite(t.time)&&Number.isSafeInteger(t.amountCents)&&t.amountCents>=100&&Number.isInteger(t.leverage)&&t.leverage>=1&&t.leverage<=100&&typeof t.win==='boolean'&&Number.isFinite(t.entry)&&t.entry>0&&Number.isFinite(t.exit)&&t.exit>0&&Object.hasOwn(PAPER_PAIRS,t.pair)&&['BUY','SELL'].includes(t.side)&&Number.isSafeInteger(t.profitCents)&&t.profitCents>=-1500&&t.profitCents<=6000).slice(0,100):[],logs:Array.isArray(s.logs)?s.logs.filter(l=>typeof l.text==='string'&&Number.isFinite(l.time)).slice(-100):[]};}catch{return empty;}}
-export { mountBots as mountRealBots } from './bots.mjs';
+import {botWorkspaceHTML} from './bot-workspace.mjs';
+import {mountDashboard,escapeHTML} from './dashboard.mjs';
+import {createTradingService,positiveDecimal} from './trading-service.mjs';
+
+export const realBotsHTML=()=>botWorkspaceHTML({real:true});
+
+export function mountRealBots(root,options){
+  mountDashboard(root,{...options,view:'real-bots',mainHTML:realBotsHTML()});
+  const page=root.querySelector('.bots-page'),q=id=>page.querySelector('#'+id);
+  const form=q('paper-settings'),fields=form.querySelector('fieldset');
+  const service=createTradingService(options.getAccounts);
+  const feedback=q('paper-feedback');
+  let state,busy=false,dirty=false,pending=null;
+  const tradeRow=item=>`<article class="paper-trade-row"><div><strong>${escapeHTML(item.text)}</strong></div><small>${escapeHTML(item.time)}</small></article>`;
+  const logRow=item=>`<p>${escapeHTML(item.time)} ${escapeHTML(item.text)}</p>`;
+  const list=(id,items,empty,row)=>{
+    q(id).innerHTML=Array.isArray(items)&&items.length
+      ? items.map(row).join('')
+      : `<p class="transfer-caption">${empty}</p>`;
+  };
+  function render(){
+    const stopped=state?.status==='stopped';
+    fields.disabled=busy||state?.enabled!==true||!stopped;
+    q('paper-start').disabled=fields.disabled||dirty||!state?.settings;
+    q('paper-stop').disabled=busy||state?.canStop!==true;
+    q('real-bot-refresh').disabled=busy;
+    q('paper-status').textContent=state?.status??'Unavailable';
+    q('paper-status').classList.toggle('running',state?.status==='running');
+    q('paper-pair').textContent=state?.settings?.pair??'Pair unavailable';
+    q('paper-log-count').textContent=state?.logs?.length==null?'—':state.logs.length+' entries';
+    q('paper-trades').textContent=state?.stats?.trades??'—';
+    q('paper-win-rate').textContent=state?.stats?.winRate??'—';
+    q('paper-profit').textContent=state?.stats?.pnl??'—';
+    q('paper-balance').textContent=state?.stats?.balance??'—';
+    const lastTrade=state?.history?.[0];
+    q('paper-last-trade').innerHTML=lastTrade?tradeRow(lastTrade):'';
+    list('paper-log',state?.logs,state?'No bot logs yet.':'Bot logs unavailable.',logRow);
+    list('paper-history',state?.history,state?'No trades yet.':'Trade history unavailable.',tradeRow);
+  }
+  function fill(){
+    const settings=state.settings||{};
+    form.elements.pair.replaceChildren(new Option('Choose a pair',''),...(state.pairs||[]).map(pair=>new Option(pair,pair)));
+    for(const key of ['pair','amount','interval','leverage'])form.elements[key].value=settings[key]??'';
+  }
+  async function update(command){
+    if(busy)return;
+    busy=true;feedback.textContent='';render();
+    try{
+      if(command){
+        const key=JSON.stringify(command);
+        if(pending?.key!==key)pending={key,id:crypto.randomUUID()};
+        state=await service.botCommand({...command,requestId:pending.id});
+        pending=null;
+        dirty=false;
+      }else state=await service.bot();
+      if(!page.isConnected)return;
+      if(!dirty)fill();
+      q('real-bot-status').textContent=state.enabled===true?'Strategy status: '+state.status:'Real bot access is unavailable.';
+      if(command)feedback.textContent='Strategy status: '+state.status;
+    }catch(error){
+      state=null;
+      if(page.isConnected)q('real-bot-status').textContent=error.message;
+    }finally{
+      busy=false;
+      if(page.isConnected)render();
+    }
+  }
+  form.oninput=()=>{dirty=true;q('paper-start').disabled=true;};
+  form.onsubmit=e=>{
+    e.preventDefault();
+    if(fields.disabled)return;
+    const {pair,amount,interval,leverage}=Object.fromEntries(new FormData(form));
+    if(!positiveDecimal(amount)||!Number.isSafeInteger(+interval)||+interval<1||!Number.isSafeInteger(+leverage)||+leverage<1){
+      q('bot-settings-feedback').textContent='Enter a valid positive amount, interval, and leverage.';
+      return;
+    }
+    q('bot-settings-feedback').textContent='';
+    update({action:'save',settings:{pair,amount,interval:+interval,leverage:+leverage}});
+  };
+  q('paper-start').onclick=()=>{if(!q('paper-start').disabled&&window.confirm('Start this strategy on your real account?'))update({action:'start'});};
+  q('paper-stop').onclick=()=>{if(!q('paper-stop').disabled)update({action:'stop'});};
+  q('real-bot-refresh').onclick=()=>update();
+  update();
+  window.scrollTo(0,0);
+}
