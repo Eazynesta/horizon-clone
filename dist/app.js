@@ -232,6 +232,7 @@ async function initializeAccounts() {
     accounts = await connectAccounts();
     accounts.client.auth.onAuthStateChange((event, session) => {
       if(event==='SIGNED_OUT'||(event==='SIGNED_IN'&&signedInUser?.id!==session?.user?.id))accounts.clearUserCache();
+      if (signedInUser?.id !== session?.user?.id) resetSupport();
       signedInUser = session?.user || null;
       if (event === 'PASSWORD_RECOVERY') recoveryMode = true;
       // Defer SDK calls outside the auth callback to avoid a session-lock deadlock.
@@ -263,6 +264,10 @@ async function initializeAccounts() {
 
 }
 window.addEventListener('hashchange', () => { route().catch(() => notice('Unable to load this page. Please try again.')); });
-mountHelpChat();
+const resetSupport=mountHelpChat(async()=>{
+  await accountsReady;
+  if(!accounts)throw Error(connectionError||'Account services are unavailable.');
+  return accounts;
+});
 accountsReady=initializeAccounts();
 route().catch(()=>notice('Unable to open this page. Please try again.'));

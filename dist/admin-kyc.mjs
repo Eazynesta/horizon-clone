@@ -7,6 +7,38 @@ const photoSlots = [
 ];
 const documentTypes = {passport:'Passport', national_id:'National ID', drivers_license:'Driver’s license'};
 
+export async function loadKycPhotos(service, row) {
+  const slots = photoSlots.filter(([key]) => key !== 'document_back_path' || row.document_type !== 'passport');
+  const images = await Promise.all(slots.map(async ([key, label]) => {
+    const url = await service.kycPhoto(row[key]);
+    const image = new Image();
+    image.alt = label;
+    image.style.maxWidth = '100%';
+    image.style.maxHeight = '60vh';
+    image.referrerPolicy = 'no-referrer';
+    image.src = url;
+    await image.decode();
+    return image;
+  }));
+  const gallery = document.createElement('div');
+  for (const image of images) {
+    const label = document.createElement('p');
+    label.textContent = image.alt;
+    gallery.append(label, image);
+  }
+  return gallery;
+}
+
+export function kycDetailsHTML(row) {
+  return `<dl class="finance-facts">
+    <dt>Legal name</dt><dd>${esc(row.full_name)}</dd>
+    <dt>Date of birth</dt><dd>${esc(row.date_of_birth)}</dd>
+    <dt>Country of residence</dt><dd>${esc(row.country)}</dd>
+    <dt>Document type</dt><dd>${esc(documentTypes[row.document_type])}</dd>
+    <dt>Account ID</dt><dd>${esc(row.user_id)}</dd>
+  </dl>`;
+}
+
 export const adminKycHTML = `
   <section class="deposit-panel finance-audit" id="admin-kyc">
     <div class="finance-section-heading">
@@ -80,36 +112,12 @@ export function mountAdminKyc(panel, service) {
     selected = null;
     approve.disabled = true;
     error.textContent = '';
-    details.innerHTML = `
-      <dl class="finance-facts">
-        <dt>Legal name</dt><dd>${esc(row.full_name)}</dd>
-        <dt>Date of birth</dt><dd>${esc(row.date_of_birth)}</dd>
-        <dt>Country of residence</dt><dd>${esc(row.country)}</dd>
-        <dt>Document type</dt><dd>${esc(documentTypes[row.document_type])}</dd>
-        <dt>Account ID</dt><dd>${esc(row.user_id)}</dd>
-      </dl><p data-kyc-photos>Loading private photos…</p>`;
+    details.innerHTML = kycDetailsHTML(row) + '<p data-kyc-photos>Loading private photos…</p>';
     dialog.showModal();
     const photos = q('[data-kyc-photos]');
     try {
-      const slots = photoSlots.filter(([key]) => key !== 'document_back_path' || row.document_type !== 'passport');
-      const images = await Promise.all(slots.map(async ([key, label]) => {
-        const url = await service.kycPhoto(row[key]);
-        const image = new Image();
-        image.alt = label;
-        image.style.maxWidth = '100%';
-        image.style.maxHeight = '60vh';
-        image.referrerPolicy = 'no-referrer';
-        image.src = url;
-        await image.decode();
-        return image;
-      }));
+      const gallery = await loadKycPhotos(service, row);
       if (!dialog.open || version !== reviewVersion || !panel.isConnected) return;
-      const gallery = document.createElement('div');
-      for (const image of images) {
-        const label = document.createElement('p');
-        label.textContent = image.alt;
-        gallery.append(label, image);
-      }
       photos.replaceWith(gallery);
       selected = row;
       approve.disabled = false;

@@ -19,6 +19,15 @@ export function createAdminService(accounts){const client=accounts.client;
     .eq('status','pending').neq('user_id',admin.id)
     .order('consent_at').order('id').range(offset,offset+25));
  }
+ async function accountProfile(id) {
+  if (!await isAdmin()) throw Error('Administrator access required.');
+  const [profile,kyc] = await Promise.all([
+   checked(client.from('profiles').select('first_name,last_name,phone').eq('id',id).maybeSingle()),
+   checked(client.from('kyc_submissions').select('user_id,full_name,date_of_birth,country,document_type,document_front_path,document_back_path,selfie_path,consent_at,status,reviewed_at')
+    .eq('user_id',id).in('status',['pending','verified','rejected']).not('consent_at','is',null).maybeSingle())
+  ]);
+  return {profile,kyc};
+ }
  async function kycPhoto(path) {
   if (!path) throw Error('Required identity photo is missing.');
   const photo = await checked(client.storage.from(KYC_BUCKET).createSignedUrl(path,60));
@@ -31,4 +40,4 @@ export function createAdminService(accounts){const client=accounts.client;
    submission_version:row.updated_at
   }));
  }
- return {isAdmin,directory,load,execute,accountsPage,grantAdmin,pendingKyc,kycPhoto,approveKyc};}
+ return {isAdmin,directory,load,execute,accountsPage,grantAdmin,pendingKyc,accountProfile,kycPhoto,approveKyc};}
