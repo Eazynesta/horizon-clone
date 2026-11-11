@@ -71,7 +71,7 @@ export function dashboardHTML({firstName='there',preview=false,view='dashboard'}
       <section class="dashboard-welcome"><div class="welcome-heading"><div><h1>${view==='markets'?'Explore the markets':`Welcome back, ${escapeHTML(firstName)}`}</h1><p>Here's the latest market overview.</p></div><div class="welcome-actions"><button class="secondary-button" data-nav="markets">${icon('markets')} Markets</button>${view==='dashboard'&&!preview?'<button class="secondary-button" id="dashboard-real-bots" data-nav="real-bots">Real Trading Bots</button>':''}<button class="primary-button" id="dashboard-trade" data-nav="trade">${icon('bolt')} Trade Now</button></div></div>
       ${view==='dashboard'?'<div class="account-mode" role="group" aria-label="Account mode"><button type="button" data-mode="real" aria-pressed="true">Real</button><button type="button" data-mode="demo" aria-pressed="false">Demo</button></div>':''}
       <div class="summary-grid"><article class="summary-card"><p>${icon('wallet')} <span id="wallet-summary-label">Funded Assets</span></p><strong class="summary-number" id="wallet-summary">—</strong></article><article class="summary-card"><p>${icon('volume')} 24h Volume · tracked USDT pairs</p><strong class="summary-number" id="overview-volume">—</strong></article><article class="summary-card"><p>${icon('trade','positive')} Top Gainer</p><strong class="summary-asset">${top?.symbol||'—'} <span class="positive">${percentage(top?.change)}</span></strong></article><article class="summary-card"><p>${icon('down','negative')} Top Loser</p><strong class="summary-asset">${bottom?.symbol||'—'} <span class="negative">${percentage(bottom?.change)}</span></strong></article></div></section>
-      <div class="dashboard-ticker" aria-label="Live market ticker">${['BTC','BNB','SOL','XRP','ETH'].map(symbol=>{const a=overviewAssets().find(a=>a.symbol===symbol);return `<button data-asset="${a.symbol}">${coin(a)}<strong>${a.symbol}/USDT</strong><span>${money(a.price)}</span><span class="${a.change>=0?'positive':'negative'}">${percentage(a.change)}</span></button>`;}).join('')}</div>
+      <div class="dashboard-ticker" aria-label="Live market ticker">${assetsForView('markets').map(a=>`<button data-asset="${a.symbol}">${coin(a)}<strong>${a.sourceSymbol ? a.symbol : a.pair || a.symbol}</strong><span>${money(a.price)}</span><span class="${a.change>=0?'positive':'negative'}">${percentage(a.change)}</span></button>`).join('')}</div>
       <div class="dashboard-content"><div class="dashboard-disclosure"><span class="sample-dot"></span><span id="overview-status" role="status">Connecting to Kraken…</span> · Rankings cover listed markets. Real trading availability depends on your account.</div><section aria-labelledby="assets-title"><div class="section-heading"><h2 id="assets-title">${view==='markets'?'All Markets':'Featured Markets'}</h2><button class="view-all" id="view-all">View All ${icon('arrow')}</button></div><div class="asset-grid" id="asset-grid">${assetsForView(view).filter(a=>view==='markets'||a.trending).map(assetCard).join('')}</div><p id="search-empty" class="empty-market" hidden>No markets found. Try a name or symbol such as BTC.</p></section>
       <div class="ranking-grid">${ranking('Top Gainers',gainers())}${ranking('Top Losers',losers(),true)}</div>
       <footer class="dashboard-footer"><a href="#/">Aurexmarkets Exchange</a><span>Source: Kraken · USD and USDT pairs are labelled separately.</span><a href="${preview?'#/login':'#/account'}">Account settings ${icon('arrow')}</a></footer></div>
@@ -134,8 +134,13 @@ export function mountDashboard(root, options) {
   dialog.querySelector('.dialog-close').onclick=close;
   dialog.addEventListener('click',e=>{if(e.target===dialog)close();});
   dialog.addEventListener('close',()=>lastFocus?.focus());
+  function findMarket(symbol) {
+    const assets = overviewAssets();
+    return assets.find(a => a.symbol === symbol)
+      || assetsForView('markets', assets).find(a => a.symbol === symbol);
+  }
   function showAsset(symbol) {
-    const a=assetsForView(options.view).find(a=>a.symbol===symbol); if(!a)return; selectedSymbol=symbol; requestHistory(a.sourceSymbol || symbol);
+    const a=findMarket(symbol); if(!a)return; selectedSymbol=symbol; requestHistory(a.sourceSymbol || symbol);
     showDialog(a.pair||a.symbol+' · Market unavailable',dialogContent(a));
   }
   function dialogContent(a){return `<div class="asset-modal-heading">${coin(a)}<div><p>${a.name}</p><strong>${money(a.price)}</strong></div><span class="change-badge ${a.change>=0?'positive':'negative'}">${percentage(a.change)}</span></div>${chart(a)}<dl class="market-facts"><dt>24h change</dt><dd class="${a.change>=0?'positive':'negative'}">${percentage(a.change)}</dd><dt>24h volume</dt><dd>${volumeLabel(a)}</dd><dt>Quote currency</dt><dd>${a.quote||'Unavailable'}</dd></dl><p class="dialog-explanation">Source: Kraken · ${overviewState().status}. Trade availability depends on your account. Deposits use configured networks and manual review.</p>`;}
@@ -167,7 +172,7 @@ export function mountDashboard(root, options) {
   };
   bindOverview(root,()=>{
     if(!options.mainHTML) refreshOverview();
-    if(dialog.open&&selectedSymbol){const active=document.activeElement;const a=assetsForView(options.view).find(a=>a.symbol===selectedSymbol);root.querySelector('#dialog-content').innerHTML=dialogContent(a);if(active?.isConnected)active.focus();}
+    if(dialog.open&&selectedSymbol){const active=document.activeElement;const a=findMarket(selectedSymbol);root.querySelector('#dialog-content').innerHTML=dialogContent(a);if(active?.isConnected)active.focus();}
   });
   if(options.mainHTML) {
     root.querySelector('#market-search').addEventListener('keydown', e=>{
@@ -188,12 +193,36 @@ export function mountDashboard(root, options) {
   }
   root.querySelector('#market-search').addEventListener('input',filter);
   root.querySelector('#view-all').onclick=()=>{all=!all;filter();root.querySelector('#view-all').innerHTML=(all?'Show Featured':'View All')+' '+icon('arrow');};
+  const ticker = root.querySelector('.dashboard-ticker');
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+  const tickerTimer = setInterval(() => {
+    if (!ticker.isConnected) {
+      clearInterval(tickerTimer);
+      return;
+    }
+    if (document.hidden || reducedMotion.matches || ticker.matches(':hover, :focus-within') || dialog.open) return;
+
+    const end = ticker.scrollWidth - ticker.clientWidth;
+    if (end <= 0) return;
+    if (ticker.scrollLeft >= end - 1) {
+      ticker.scrollTo({left:0});
+      return;
+    }
+    const edge = ticker.getBoundingClientRect().left;
+    const next = [...ticker.children].find(button => button.getBoundingClientRect().left > edge + 1);
+    ticker.scrollTo({
+      left: next ? ticker.scrollLeft + next.getBoundingClientRect().left - edge : end,
+      behavior:'smooth'
+    });
+  }, 3000);
+
   function refreshOverview(){
     const assets=overviewAssets(),top=gainers(assets)[0],bottom=losers(assets)[0],cards=root.querySelectorAll('.summary-card');
     root.querySelector('#overview-status').textContent='Kraken · '+getStatus();
     const quoted=assets.filter(a=>a.quote==='USDT'&&Number.isFinite(a.volume));root.querySelector('#overview-volume').textContent=quoted.length?new Intl.NumberFormat('en-US',{notation:'compact',maximumFractionDigits:2}).format(quoted.reduce((sum,a)=>sum+a.volume,0))+' USDT':'—';
     cards[2].querySelector('strong').innerHTML=(top?.symbol||'—')+' <span class="positive">'+percentage(top?.change)+'</span>';cards[3].querySelector('strong').innerHTML=(bottom?.symbol||'—')+' <span class="negative">'+percentage(bottom?.change)+'</span>';
-    for(const b of root.querySelectorAll('.dashboard-ticker button')){const a=assets.find(a=>a.symbol===b.dataset.asset);b.querySelector('strong').textContent=a.pair||a.symbol;b.querySelectorAll('span').forEach((span,i)=>{if(i===0)span.textContent=money(a.price);if(i===1){span.textContent=percentage(a.change);span.className=a.change>=0?'positive':'negative';}});}
+    const tickerAssets=assetsForView('markets',assets);
+    for(const b of ticker.children){const a=tickerAssets.find(a=>a.symbol===b.dataset.asset);b.querySelector('strong').textContent=a.sourceSymbol ? a.symbol : a.pair || a.symbol;b.querySelectorAll('span').forEach((span,i)=>{if(i===0)span.textContent=money(a.price);if(i===1){span.textContent=percentage(a.change);span.className=a.change>=0?'positive':'negative';}});}
     const query=root.querySelector('#market-search').value;const visible=assetsForView(options.view,assets).filter(a=>(a.symbol+' '+a.name).toLowerCase().includes(query.trim().toLowerCase())).filter(a=>query||all||a.trending);
     const grid=root.querySelector('#asset-grid');if([...grid.children].map(b=>b.dataset.asset).join()!==visible.map(a=>a.symbol).join())grid.innerHTML=visible.map(assetCard).join('');else for(const b of grid.children){const a=visible.find(a=>a.symbol===b.dataset.asset),holder=document.createElement('div');holder.innerHTML=assetCard(a);b.innerHTML=holder.firstElementChild.innerHTML;}
     for(const a of visible)requestHistory(a.sourceSymbol || a.symbol);
