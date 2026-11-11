@@ -9,7 +9,7 @@ import { mountDashboard } from './dashboard.mjs';
 import { mountDeposit } from './deposit.mjs';
 import { mountWithdrawal } from './withdraw.mjs';
 import { mountRealBots } from './real-bots.mjs';
-import { mountBots } from './bots.mjs';
+import { mountBots } from './demo-bots.mjs';
 import { mountTrade } from './trade.mjs';
 
 const root = document.getElementById('root');

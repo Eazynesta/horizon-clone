@@ -5,7 +5,7 @@ import {ACTIVATION_CODE,paperStorageKey,validateBotSettings,freshPaperBot,restor
 
 const dollars=c=>new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(c/100);
 
-export const botsHTML=()=>botWorkspaceHTML();
+export const botsHTML=()=>botWorkspaceHTML({real:true});
 
 export function mountBots(root,options={}){
   mountDashboard(root,{...options,view:'bots',mainHTML:botsHTML()});
@@ -13,6 +13,10 @@ export function mountBots(root,options={}){
   
   let state=freshPaperBot(),storageKey=options.preview?paperStorageKey():null,ready=!!options.preview,timer=null,startAt=0,due=0,phase=-1;
   
+  // Hide the reset button entirely since this is "Real" trading
+  const resetBtn = q('#paper-reset');
+  if (resetBtn) resetBtn.style.display = 'none';
+
   function save(){
     if(!storageKey)return;
     try{
