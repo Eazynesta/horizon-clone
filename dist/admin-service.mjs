@@ -12,6 +12,14 @@ export function createAdminService(accounts){const client=accounts.client;
   await user();
   return checked(client.rpc('finance_grant_admin', {account_email:email.trim()}));
  }
+ async function fundingNotifications(offset) {
+  await user();
+  return checked(client.from('funding_requests')
+    .select('*,amount::text,fee::text,network_fee::text')
+    .in('kind',['deposit','withdrawal'])
+    .in('status',['awaiting_payment','pending_review','processing'])
+    .order('created_at',{ascending:false}).order('id').range(offset,offset+25));
+ }
  async function pendingKyc(offset) {
   const admin = await user();
   return checked(client.from('kyc_submissions')
@@ -47,4 +55,4 @@ export function createAdminService(accounts){const client=accounts.client;
    submission_version:row.updated_at
   }));
  }
- return {isAdmin,directory,load,execute,accountsPage,grantAdmin,pendingKyc,accountProfile,kycPhoto,approveKyc};}
+ return {isAdmin,directory,load,execute,accountsPage,grantAdmin,fundingNotifications,pendingKyc,accountProfile,kycPhoto,approveKyc};}
